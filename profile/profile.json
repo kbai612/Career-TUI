@@ -1,0 +1,43 @@
+{
+  "name": "Santiago Example",
+  "email": "santiago@example.com",
+  "phone": "+1-555-010-2026",
+  "location": "New York, NY",
+  "linkedin": "https://linkedin.com/in/santiago-example",
+  "github": "https://github.com/santiago-example",
+  "portfolio": "https://santifer.io",
+  "summary": "Staff-level engineer building agentic systems, automation platforms, and AI infrastructure.",
+  "skills": [
+    "TypeScript",
+    "Node.js",
+    "Python",
+    "OpenAI API",
+    "Playwright",
+    "SQLite",
+    "Prompt engineering",
+    "LLMOps",
+    "Evaluation pipelines",
+    "CLI/TUI product design"
+  ],
+  "proofPoints": [
+    "Designed a multi-agent job pipeline with scoring, resume tailoring, and HITL application review.",
+    "Built browser automations with persistent sessions and deterministic checkpoints.",
+    "Led infrastructure work for model evaluation, CI/CD, and agentic workflows."
+  ],
+  "preferences": {
+    "remoteOnly": true,
+    "allowedRegions": [
+      "United States",
+      "Remote"
+    ],
+    "targetCompMinUsd": 180000,
+    "targetCompMaxUsd": 280000
+  },
+  "eeo": {
+    "gender": "Prefer not to say",
+    "race": "Prefer not to say",
+    "veteran": "No",
+    "disability": "No",
+    "requiresSponsorship": "No"
+  }
+}

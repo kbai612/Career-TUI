@@ -1,0 +1,104 @@
+{
+  "archetypes": [
+    {
+      "id": "ai-platform-llmops",
+      "label": "AI Platform / LLMOps Engineer",
+      "keywords": [
+        "llm",
+        "llmops",
+        "rag",
+        "evaluation",
+        "model registry",
+        "vector db",
+        "inference",
+        "ml platform"
+      ],
+      "seniority": [
+        "senior",
+        "staff",
+        "principal"
+      ]
+    },
+    {
+      "id": "forward-deployed-ai",
+      "label": "Forward Deployed AI Engineer",
+      "keywords": [
+        "customer",
+        "implementation",
+        "solutions",
+        "deployment",
+        "agent",
+        "automation"
+      ],
+      "seniority": [
+        "senior",
+        "staff"
+      ]
+    },
+    {
+      "id": "agentic-software",
+      "label": "Agentic Software Engineer",
+      "keywords": [
+        "agent",
+        "workflow",
+        "automation",
+        "typescript",
+        "python",
+        "playwright"
+      ],
+      "seniority": [
+        "mid",
+        "senior"
+      ]
+    },
+    {
+      "id": "solutions-engineering",
+      "label": "Solutions Engineer",
+      "keywords": [
+        "solutions",
+        "pre-sales",
+        "customer",
+        "demo",
+        "integration"
+      ],
+      "seniority": [
+        "mid",
+        "senior",
+        "staff"
+      ]
+    },
+    {
+      "id": "product-ai",
+      "label": "Product AI Builder",
+      "keywords": [
+        "product",
+        "growth",
+        "experimentation",
+        "platform",
+        "ai first"
+      ],
+      "seniority": [
+        "mid",
+        "senior",
+        "principal"
+      ]
+    },
+    {
+      "id": "ml-infra",
+      "label": "ML Infrastructure Engineer",
+      "keywords": [
+        "training",
+        "feature store",
+        "model serving",
+        "kubernetes",
+        "ci/cd",
+        "mlops"
+      ],
+      "seniority": [
+        "senior",
+        "staff",
+        "principal"
+      ]
+    }
+  ]
+}

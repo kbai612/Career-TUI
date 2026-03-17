@@ -1,0 +1,17 @@
+{
+  "name": "@career-ops/worker",
+  "version": "0.1.0",
+  "main": "dist/apps/worker/src/index.js",
+  "types": "dist/apps/worker/src/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --pool threads --poolOptions.threads.singleThread",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@career-ops/core": "file:../../packages/core",
+    "commander": "^13.1.0",
+    "p-queue": "^8.1.0",
+    "playwright": "^1.51.0"
+  }
+}

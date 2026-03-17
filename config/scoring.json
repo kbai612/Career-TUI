@@ -1,0 +1,17 @@
+{
+  "weights": {
+    "roleFit": 1.2,
+    "skillsAlignment": 1.2,
+    "seniorityCalibration": 1.0,
+    "compensationRange": 1.0,
+    "geographicViability": 1.0,
+    "companyStability": 0.8,
+    "productMarketInterest": 0.9,
+    "growthTrajectory": 0.9,
+    "atsCompatibility": 0.8,
+    "timelineUrgency": 0.7
+  },
+  "rejectThreshold": 2.7,
+  "shortlistThreshold": 3.9,
+  "topThreshold": 4.2
+}

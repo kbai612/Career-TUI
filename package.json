@@ -1,0 +1,28 @@
+{
+    "name":  "career-ops",
+    "private":  true,
+    "packageManager":  "pnpm@10.6.0",
+    "workspaces":  [
+                       "apps/*",
+                       "packages/*"
+                   ],
+    "scripts":  {
+                    "build":  "pnpm -r build",
+                    "test":  "pnpm -r test",
+                    "dev:tui":  "pnpm --filter @career-ops/tui dev",
+                    "dev:worker":  "pnpm --filter @career-ops/worker dev",
+                    "tui":  "node apps/tui/dist/apps/tui/src/index.js"
+                },
+    "devDependencies":  {
+                            "@types/node":  "^22.13.10",
+                            "tsx":  "^4.19.3",
+                            "typescript":  "^5.8.2",
+                            "vitest":  "^3.0.8"
+                        },
+    "pnpm":  {
+                 "onlyBuiltDependencies":  [
+                                               "better-sqlite3",
+                                               "esbuild"
+                                           ]
+             }
+}

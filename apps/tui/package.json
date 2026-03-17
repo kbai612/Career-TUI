@@ -1,0 +1,15 @@
+{
+  "name": "@career-ops/tui",
+  "version": "0.1.0",
+  "main": "dist/apps/tui/src/index.js",
+  "types": "dist/apps/tui/src/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --pool threads --poolOptions.threads.singleThread",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@career-ops/core": "file:../../packages/core",
+    "neo-blessed": "^0.2.0"
+  }
+}
