@@ -32,6 +32,19 @@ import type {
   TrainingAssessment
 } from "./types";
 
+const DEFAULT_TARGETED_TITLE_KEYWORDS = [
+  "senior data analyst",
+  "analytics engineer",
+  "data engineer",
+  "analyst",
+  "scientist",
+  "analytics",
+  "business intelligence",
+  "machine learning",
+  "experimentation",
+  "statistician"
+];
+
 export class CareerOpsPipeline {
   readonly repo: CareerOpsRepository;
   private readonly rootDir: string;
@@ -78,28 +91,88 @@ export class CareerOpsPipeline {
     return pattern.test(haystack);
   }
 
+  private inferLocationFromSourceUrl(sourceUrl: string): string | undefined {
+    try {
+      const parsed = new URL(sourceUrl);
+      for (const key of ["l", "location", "where"]) {
+        const value = parsed.searchParams.get(key)?.trim();
+        if (value && value.length > 0) {
+          return value.replace(/\+/g, " ");
+        }
+      }
+      const segments = parsed.pathname.split("/").filter(Boolean);
+      const locationSegmentIndex = segments.findIndex((segment) => segment.toLowerCase() === "location");
+      if (locationSegmentIndex >= 0 && segments[locationSegmentIndex + 1]) {
+        return decodeURIComponent(segments[locationSegmentIndex + 1]).replace(/-/g, " ");
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  }
+
+  private needsLocationFallback(location: string | undefined): boolean {
+    if (location == null) {
+      return true;
+    }
+    const normalized = location.trim().toLowerCase();
+    return normalized.length === 0 || normalized === "unknown" || normalized === "n/a";
+  }
+
   private extractListings(sourceUrl: string, html: string, source?: CareerSource): { listings: JobListing[]; rawCount: number } {
     const adapter = chooseAdapter(sourceUrl, source?.kind);
     const discovered = adapter.discoverListings(html, sourceUrl);
     const listings = discovered.length > 0
       ? discovered
       : [extractDirectListing(html, sourceUrl, adapter.portal)].filter(Boolean) as JobListing[];
+    const defaultRoleKeywords = source?.kind === "greenhouse" || source?.kind === "lever"
+      ? DEFAULT_TARGETED_TITLE_KEYWORDS
+      : [];
     const titleKeywords = Array.isArray(source?.metadata?.titleKeywords)
       ? source?.metadata?.titleKeywords.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
-      : [];
-    const filteredListings = titleKeywords.length > 0
-      ? listings.filter((listing) => {
+      : defaultRoleKeywords;
+    const configuredMaxAgeHours = typeof source?.metadata?.maxAgeHours === "number" && Number.isFinite(source.metadata.maxAgeHours) && source.metadata.maxAgeHours > 0
+      ? source.metadata.maxAgeHours
+      : undefined;
+    const maxAgeHours = configuredMaxAgeHours
+      ?? ((source?.kind === "greenhouse" || source?.kind === "lever" || source?.kind === "linkedin") ? 24 : undefined);
+    const recencyFilteredListings = maxAgeHours == null
+      ? listings
+      : listings.filter((listing) => {
+          if (listing.postedAt == null) {
+            return true;
+          }
+          const postedTimestamp = Date.parse(listing.postedAt);
+          if (!Number.isFinite(postedTimestamp)) {
+            return true;
+          }
+          return postedTimestamp >= Date.now() - (maxAgeHours * 60 * 60 * 1000);
+        });
+    const shouldApplyTitleKeywords = titleKeywords.length > 0 && source?.kind !== "levels";
+    const filteredListings = shouldApplyTitleKeywords
+      ? recencyFilteredListings.filter((listing) => {
           const haystack = `${listing.title} ${listing.description ?? ""}`.toLowerCase();
           return titleKeywords.some((keyword) => this.keywordMatches(haystack, keyword));
         })
-      : listings;
+      : recencyFilteredListings;
+    const effectiveListings = filteredListings.length === 0
+      && listings.length > 0
+      && source?.metadata?.discoveryOnly === true
+      ? listings
+      : filteredListings;
+    const fallbackLocation = this.inferLocationFromSourceUrl(source?.sourceUrl ?? sourceUrl);
+    const enrichedListings = effectiveListings.map((listing) => enrichDiscoveredListing({
+      ...listing,
+      location: this.needsLocationFallback(listing.location)
+        ? (fallbackLocation ?? "Unknown")
+        : listing.location.trim(),
+      description: listing.description ?? "",
+      rawHtml: listing.rawHtml ?? html
+    }, source));
+
     return {
       rawCount: listings.length,
-      listings: filteredListings.map((listing) => enrichDiscoveredListing({
-        ...listing,
-        description: listing.description ?? "",
-        rawHtml: listing.rawHtml ?? html
-      }, source))
+      listings: enrichedListings
     };
   }
 
@@ -108,22 +181,12 @@ export class CareerOpsPipeline {
   }
 
   seedTorontoDiscoverySources(): number[] {
-    const legacyDefaultSourceUrls = new Set([
+    const legacyDefaultSourceUrls = new Set<string>([
       "https://boards.greenhouse.io/embed/job_board?for=stripe",
       "https://jobs.lever.co/shyftlabs?location=Toronto%2C+Ontario",
       "https://jobs.lever.co/caseware"
     ]);
-    const targetedTitleKeywords = [
-      "senior data analyst",
-      "analytics engineer",
-      "analyst",
-      "scientist",
-      "analytics",
-      "business intelligence",
-      "machine learning",
-      "experimentation",
-      "statistician"
-    ];
+    const targetedTitleKeywords = DEFAULT_TARGETED_TITLE_KEYWORDS;
     const levelsRoleSources = [
       {
         name: "Levels Toronto Data Analyst",
@@ -132,7 +195,7 @@ export class CareerOpsPipeline {
         regionId: "toronto-canada",
         active: true,
         usePersistentBrowser: false,
-        metadata: { role: "data-analyst", discoveryOnly: true, titleKeywords: ["data analyst"] }
+        metadata: { role: "data-analyst", discoveryOnly: true, titleKeywords: targetedTitleKeywords }
       },
       {
         name: "Levels Toronto Senior Data Analyst",
@@ -141,7 +204,7 @@ export class CareerOpsPipeline {
         regionId: "toronto-canada",
         active: true,
         usePersistentBrowser: false,
-        metadata: { role: "senior-data-analyst", discoveryOnly: true, titleKeywords: ["senior data analyst"] }
+        metadata: { role: "senior-data-analyst", discoveryOnly: true, titleKeywords: targetedTitleKeywords }
       },
       {
         name: "Levels Toronto Analytics Engineer",
@@ -150,7 +213,7 @@ export class CareerOpsPipeline {
         regionId: "toronto-canada",
         active: true,
         usePersistentBrowser: false,
-        metadata: { role: "analytics-engineer", discoveryOnly: true, titleKeywords: ["analytics engineer"] }
+        metadata: { role: "analytics-engineer", discoveryOnly: true, titleKeywords: targetedTitleKeywords }
       },
       {
         name: "Levels Toronto Data Scientist",
@@ -159,7 +222,7 @@ export class CareerOpsPipeline {
         regionId: "toronto-canada",
         active: true,
         usePersistentBrowser: false,
-        metadata: { role: "data-scientist", discoveryOnly: true, titleKeywords: ["data scientist"] }
+        metadata: { role: "data-scientist", discoveryOnly: true, titleKeywords: targetedTitleKeywords }
       }
     ];
     const isLegacyLevelsTorontoSource = (sourceUrl: string): boolean => {
@@ -205,7 +268,7 @@ export class CareerOpsPipeline {
     return [
       {
         name: "LinkedIn Toronto Data Analyst",
-        sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Data%20Analyst&location=Toronto%2C%20Ontario%2C%20Canada",
+        sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Data%20Analyst&location=Toronto%2C%20Ontario%2C%20Canada&f_TPR=r86400",
         kind: "linkedin" as const,
         regionId: "toronto-canada",
         active: true,
@@ -214,7 +277,7 @@ export class CareerOpsPipeline {
       },
       {
         name: "LinkedIn Toronto Senior Data Analyst",
-        sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Senior%20Data%20Analyst&location=Toronto%2C%20Ontario%2C%20Canada",
+        sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Senior%20Data%20Analyst&location=Toronto%2C%20Ontario%2C%20Canada&f_TPR=r86400",
         kind: "linkedin" as const,
         regionId: "toronto-canada",
         active: true,
@@ -223,7 +286,7 @@ export class CareerOpsPipeline {
       },
       {
         name: "LinkedIn Toronto Analytics Engineer",
-        sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Analytics%20Engineer&location=Toronto%2C%20Ontario%2C%20Canada",
+        sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Analytics%20Engineer&location=Toronto%2C%20Ontario%2C%20Canada&f_TPR=r86400",
         kind: "linkedin" as const,
         regionId: "toronto-canada",
         active: true,
@@ -232,7 +295,7 @@ export class CareerOpsPipeline {
       },
       {
         name: "LinkedIn Toronto Data Scientist",
-        sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Data%20Scientist&location=Toronto%2C%20Ontario%2C%20Canada",
+        sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Data%20Scientist&location=Toronto%2C%20Ontario%2C%20Canada&f_TPR=r86400",
         kind: "linkedin" as const,
         regionId: "toronto-canada",
         active: true,

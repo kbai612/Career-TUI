@@ -3,13 +3,14 @@ import path from "node:path";
 import { chromium, type BrowserContext, type Locator, type Page } from "playwright";
 import { Command } from "commander";
 import PQueue from "p-queue";
-import { normalizeLevelsSourceUrl } from "./source-url";
+import { normalizeLevelsSourceUrl, normalizeLinkedInSourceUrl } from "./source-url";
 import {
   canTransition,
   CareerOpsPipeline,
   SOURCE_KINDS,
   ensureDataPaths,
   ensureReviewRequired,
+  loadRootEnv,
   type ApplicationDraft,
   type ApplicationState,
   type CareerSource,
@@ -36,6 +37,7 @@ function resolveRootDir(): string {
 }
 
 const rootDir = resolveRootDir();
+loadRootEnv(rootDir);
 const { dbPath, browserProfileDir } = ensureDataPaths(rootDir);
 const program = new Command();
 const DEFAULT_HTTP_HEADERS = {
@@ -43,7 +45,27 @@ const DEFAULT_HTTP_HEADERS = {
   "accept-language": "en-US,en;q=0.9"
 };
 const LINKEDIN_FETCH_TIMEOUT_MS = Number(process.env.CAREER_OPS_LINKEDIN_FETCH_TIMEOUT_MS ?? 20000);
+const LINKEDIN_GUEST_MAX_ATTEMPTS = Number(process.env.CAREER_OPS_LINKEDIN_GUEST_MAX_ATTEMPTS ?? 3);
+const LINKEDIN_GUEST_RETRY_BASE_MS = Number(process.env.CAREER_OPS_LINKEDIN_GUEST_RETRY_BASE_MS ?? 1250);
+const LINKEDIN_GUEST_PAGE_DELAY_MS = Number(process.env.CAREER_OPS_LINKEDIN_GUEST_PAGE_DELAY_MS ?? 300);
+const LINKEDIN_EXTERNAL_RESOLVE_LIMIT = Number(process.env.CAREER_OPS_LINKEDIN_EXTERNAL_RESOLVE_LIMIT ?? 25);
+const SOURCE_API_FETCH_TIMEOUT_MS = Number(process.env.CAREER_OPS_SOURCE_API_FETCH_TIMEOUT_MS ?? 20000);
 const SOURCE_SYNC_TIMEOUT_MS = Number(process.env.CAREER_OPS_SOURCE_SYNC_TIMEOUT_MS ?? 120000);
+const PERSISTENT_FETCH_QUEUE = new PQueue({ concurrency: 1 });
+const BOT_PROTECTED_HOST_PATTERNS = [
+  /(^|\.)indeed\.[a-z.]+$/i,
+  /(^|\.)workopolis\.com$/i,
+  /(^|\.)simplyhired\.(com|ca)$/i
+];
+const ACCESS_DENIED_PATTERNS = [
+  /request denied/i,
+  /access denied/i,
+  /attention required/i,
+  /unusual traffic/i,
+  /verify (you|that you) (are|re) human/i,
+  /are you (a )?robot/i,
+  /captcha/i
+];
 
 function demoJobs(): JobListing[] {
   return [
@@ -87,7 +109,28 @@ function demoJobs(): JobListing[] {
   ];
 }
 
-async function fetchPageHtml(url: string, options: { persistent?: boolean } = {}): Promise<string> {
+function isBotProtectedSourceUrl(sourceUrl: string): boolean {
+  try {
+    const hostname = new URL(sourceUrl).hostname.toLowerCase();
+    return BOT_PROTECTED_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
+  } catch {
+    return false;
+  }
+}
+
+function isLikelyAccessDeniedHtml(html: string): boolean {
+  if (html.trim().length === 0) {
+    return true;
+  }
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const title = (titleMatch?.[1] ?? "").replace(/\s+/g, " ").trim();
+  if (ACCESS_DENIED_PATTERNS.some((pattern) => pattern.test(title))) {
+    return true;
+  }
+  return ACCESS_DENIED_PATTERNS.some((pattern) => pattern.test(html));
+}
+
+async function fetchPageHtmlUnqueued(url: string, options: { persistent?: boolean } = {}): Promise<string> {
   let context: BrowserContext | undefined;
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   try {
@@ -120,6 +163,17 @@ async function fetchPageHtml(url: string, options: { persistent?: boolean } = {}
     await context?.close();
     await browser?.close();
   }
+}
+
+async function fetchPageHtml(url: string, options: { persistent?: boolean } = {}): Promise<string> {
+  if (options.persistent) {
+    const html = await PERSISTENT_FETCH_QUEUE.add(() => fetchPageHtmlUnqueued(url, options));
+    if (typeof html !== "string") {
+      throw new Error(`Persistent fetch returned no HTML for ${url}`);
+    }
+    return html;
+  }
+  return fetchPageHtmlUnqueued(url, options);
 }
 
 async function fetchWithTimeout(url: URL, options: RequestInit, timeoutMs: number): Promise<Response> {
@@ -156,29 +210,284 @@ async function withTimeout<T>(task: Promise<T>, timeoutMs: number, label: string
   });
 }
 
+async function sleep(ms: number): Promise<void> {
+  if (ms <= 0) {
+    return;
+  }
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isLinkedInGuestRateLimitStatus(status: number): boolean {
+  return status === 429 || status === 403 || status === 999;
+}
+
+function isLinkedInGuestRateLimitError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /LinkedIn guest search returned (429|403|999)/i.test(message);
+}
+
+function containsLinkedInSearchCards(html: string): boolean {
+  return /base-search-card|job-search-card|jobs-search__results-list|jobs-search-results-list/i.test(html);
+}
+
+function decodeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#39;/gi, "'")
+    .replace(/&#x2F;/gi, "/");
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;");
+}
+
+function stripHtmlTags(html: string): string {
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function decodeCodeCommentValue(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.length >= 2 && (
+    (trimmed.startsWith("\"") && trimmed.endsWith("\""))
+    || (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  )) {
+    return trimmed
+      .slice(1, -1)
+      .replace(/\\u0026/gi, "&")
+      .replace(/\\\\/g, "\\")
+      .replace(/\\"/g, "\"");
+  }
+  return trimmed;
+}
+
+function isLinkedInHost(hostname: string): boolean {
+  return /(^|\.)linkedin\.com$/i.test(hostname);
+}
+
+function isLinkedInJobViewUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return isLinkedInHost(parsed.hostname) && /\/jobs\/view\//i.test(parsed.pathname);
+  } catch {
+    return /linkedin\.com\/jobs\/view\//i.test(url);
+  }
+}
+
+function toAbsoluteLinkedInUrl(rawHref: string): string | null {
+  try {
+    return new URL(rawHref, "https://www.linkedin.com").toString();
+  } catch {
+    return null;
+  }
+}
+
+function resolveExternalApplyCandidate(rawHref: string, baseUrl: string): string | null {
+  try {
+    const absoluteHref = new URL(rawHref, baseUrl);
+    if (!isLinkedInHost(absoluteHref.hostname)) {
+      return absoluteHref.toString();
+    }
+
+    for (const key of ["url", "redirect", "redirectUrl", "target", "session_redirect"]) {
+      const target = absoluteHref.searchParams.get(key);
+      if (target == null || target.trim().length === 0) {
+        continue;
+      }
+      const candidates = [target];
+      try {
+        candidates.push(decodeURIComponent(target));
+      } catch {
+        // Best effort decode only.
+      }
+      for (const candidate of candidates) {
+        try {
+          const targetUrl = new URL(candidate, absoluteHref);
+          if (!isLinkedInHost(targetUrl.hostname)) {
+            return targetUrl.toString();
+          }
+        } catch {
+          continue;
+        }
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function extractLinkedInJobViewUrlsFromGuestHtml(html: string): string[] {
+  const urls = new Set<string>();
+  const hrefPattern = /href="([^"]+)"/gi;
+  let match: RegExpExecArray | null;
+  while ((match = hrefPattern.exec(html)) != null) {
+    const decodedHref = decodeHtmlAttribute(match[1]);
+    const absoluteHref = toAbsoluteLinkedInUrl(decodedHref);
+    if (!absoluteHref || !isLinkedInJobViewUrl(absoluteHref)) {
+      continue;
+    }
+    urls.add(absoluteHref);
+  }
+  return Array.from(urls);
+}
+
+function extractExternalApplyUrlFromLinkedInCodeBlocks(html: string, jobUrl: string): string | null {
+  const codePattern = /<code\b[^>]*id="([^"]+)"[^>]*>\s*<!--([\s\S]*?)-->\s*<\/code>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = codePattern.exec(html)) != null) {
+    const codeId = match[1].toLowerCase();
+    if (!/(apply|offsite|company[_-]?web[si]te)/i.test(codeId)) {
+      continue;
+    }
+    const decoded = decodeHtmlAttribute(decodeCodeCommentValue(match[2]));
+    const resolved = resolveExternalApplyCandidate(decoded, jobUrl);
+    if (resolved != null) {
+      return resolved;
+    }
+  }
+  return null;
+}
+
+function extractExternalApplyUrlFromLinkedInJobHtml(html: string, jobUrl: string): string | null {
+  const codeResolved = extractExternalApplyUrlFromLinkedInCodeBlocks(html, jobUrl);
+  if (codeResolved != null) {
+    return codeResolved;
+  }
+
+  const anchorPattern = /<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = anchorPattern.exec(html)) != null) {
+    const markup = match[0].toLowerCase();
+    const text = stripHtmlTags(match[2]).toLowerCase();
+    const looksApplyLink = markup.includes("topcard__apply-link")
+      || (markup.includes("tracking-control-name") && markup.includes("apply"))
+      || markup.includes("company_webiste")
+      || markup.includes("company_website")
+      || markup.includes("offsite")
+      || /\bapply\b/.test(text);
+    if (!looksApplyLink) {
+      continue;
+    }
+
+    const decodedHref = decodeHtmlAttribute(match[1]);
+    const absoluteHref = toAbsoluteLinkedInUrl(decodedHref) ?? new URL(decodedHref, jobUrl).toString();
+    if (isLinkedInJobViewUrl(absoluteHref)) {
+      continue;
+    }
+    const resolved = resolveExternalApplyCandidate(decodedHref, jobUrl);
+    if (resolved != null) {
+      return resolved;
+    }
+  }
+  return null;
+}
+
+async function resolveLinkedInExternalApplyUrls(jobViewUrls: string[]): Promise<Map<string, string>> {
+  const resolved = new Map<string, string>();
+  if (jobViewUrls.length === 0) {
+    return resolved;
+  }
+  const queue = new PQueue({ concurrency: 4 });
+  await Promise.all(
+    jobViewUrls.map((jobUrl) => queue.add(async () => {
+      try {
+        const response = await fetchWithTimeout(new URL(jobUrl), { headers: DEFAULT_HTTP_HEADERS }, LINKEDIN_FETCH_TIMEOUT_MS);
+        if (!response.ok) {
+          return;
+        }
+        const html = await response.text();
+        const externalApplyUrl = extractExternalApplyUrlFromLinkedInJobHtml(html, jobUrl);
+        if (externalApplyUrl == null) {
+          return;
+        }
+        resolved.set(jobUrl, externalApplyUrl);
+      } catch {
+        return;
+      }
+    }))
+  );
+  return resolved;
+}
+
+function rewriteLinkedInGuestCardLinks(html: string, resolvedUrls: Map<string, string>): string {
+  if (resolvedUrls.size === 0) {
+    return html;
+  }
+  return html.replace(/href="([^"]+)"/gi, (fullMatch, rawHref: string) => {
+    const decodedHref = decodeHtmlAttribute(rawHref);
+    const absoluteHref = toAbsoluteLinkedInUrl(decodedHref);
+    if (!absoluteHref) {
+      return fullMatch;
+    }
+    const replacement = resolvedUrls.get(absoluteHref);
+    if (replacement == null) {
+      return fullMatch;
+    }
+    return `href="${escapeHtmlAttribute(replacement)}"`;
+  });
+}
+
+async function fetchLinkedInGuestPageHtml(guestUrl: URL): Promise<string> {
+  let lastError: Error | undefined;
+  for (let attempt = 1; attempt <= LINKEDIN_GUEST_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(guestUrl, { headers: DEFAULT_HTTP_HEADERS }, LINKEDIN_FETCH_TIMEOUT_MS);
+      if (response.ok) {
+        return await response.text();
+      }
+      if (!isLinkedInGuestRateLimitStatus(response.status)) {
+        throw new Error(`LinkedIn guest search returned ${response.status} ${response.statusText}`);
+      }
+      lastError = new Error(`LinkedIn guest search returned ${response.status} ${response.statusText}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+    if (attempt < LINKEDIN_GUEST_MAX_ATTEMPTS) {
+      await sleep(LINKEDIN_GUEST_RETRY_BASE_MS * attempt);
+    }
+  }
+  throw lastError ?? new Error("LinkedIn guest search failed.");
+}
+
 async function fetchLinkedInGuestSearchHtml(sourceUrl: string): Promise<string> {
-  const source = new URL(sourceUrl);
+  const source = new URL(normalizeLinkedInSourceUrl(sourceUrl));
   const guestUrl = new URL("https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search");
   for (const [key, value] of source.searchParams.entries()) {
     guestUrl.searchParams.set(key, value);
   }
 
   const pages: string[] = [];
+  let remainingResolveBudget = Math.max(0, LINKEDIN_EXTERNAL_RESOLVE_LIMIT);
+  const seenJobViewUrls = new Set<string>();
   for (let start = 0; start < 75; start += 25) {
     guestUrl.searchParams.set("start", String(start));
-    const response = await fetchWithTimeout(guestUrl, { headers: DEFAULT_HTTP_HEADERS }, LINKEDIN_FETCH_TIMEOUT_MS);
-    if (!response.ok) {
-      throw new Error(`LinkedIn guest search returned ${response.status} ${response.statusText}`);
-    }
-    const html = await response.text();
-    if (!/base-search-card|job-search-card/i.test(html)) {
+    const html = await fetchLinkedInGuestPageHtml(guestUrl);
+    if (!containsLinkedInSearchCards(html)) {
       break;
     }
-    pages.push(html);
+    const jobViewUrls = remainingResolveBudget > 0
+      ? extractLinkedInJobViewUrlsFromGuestHtml(html)
+          .filter((jobUrl) => {
+            if (seenJobViewUrls.has(jobUrl)) {
+              return false;
+            }
+            seenJobViewUrls.add(jobUrl);
+            return true;
+          })
+          .slice(0, remainingResolveBudget)
+      : [];
+    remainingResolveBudget -= jobViewUrls.length;
+    const resolvedUrls = await resolveLinkedInExternalApplyUrls(jobViewUrls);
+    const rewrittenHtml = rewriteLinkedInGuestCardLinks(html, resolvedUrls);
+    pages.push(rewrittenHtml);
     const pageCardCount = (html.match(/base-search-card--link|job-search-card/g) ?? []).length;
     if (pageCardCount < 25) {
       break;
     }
+    await sleep(LINKEDIN_GUEST_PAGE_DELAY_MS);
   }
 
   if (pages.length === 0) {
@@ -188,14 +497,133 @@ async function fetchLinkedInGuestSearchHtml(sourceUrl: string): Promise<string> 
   return `<html><body><ul>${pages.join("\n")}</ul></body></html>`;
 }
 
+function parseGreenhouseBoardToken(sourceUrl: string): string | null {
+  try {
+    const parsed = new URL(sourceUrl);
+    const tokenFromQuery = parsed.searchParams.get("for")?.trim();
+    if (tokenFromQuery) {
+      return tokenFromQuery;
+    }
+
+    const hostname = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    if (!hostname.endsWith("greenhouse.io")) {
+      return null;
+    }
+
+    if (hostname === "boards.greenhouse.io" || hostname === "job-boards.greenhouse.io") {
+      const reserved = new Set(["embed", "job_board", "jobs", "board", "boards"]);
+      const token = segments.find((segment) => !reserved.has(segment.toLowerCase()));
+      return token ?? null;
+    }
+
+    const subdomain = hostname.split(".")[0];
+    if (subdomain && subdomain !== "boards" && subdomain !== "job-boards") {
+      return subdomain;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function parseLeverSiteToken(sourceUrl: string): string | null {
+  try {
+    const parsed = new URL(sourceUrl);
+    const hostname = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    const segments = parsed.pathname.split("/").filter(Boolean);
+
+    if (hostname === "jobs.lever.co" || hostname.endsWith(".jobs.lever.co")) {
+      return segments[0] ?? null;
+    }
+
+    if (hostname === "api.lever.co" || hostname.endsWith(".api.lever.co")) {
+      const postingsIndex = segments.findIndex((segment) => segment.toLowerCase() === "postings");
+      if (postingsIndex >= 0 && segments[postingsIndex + 1]) {
+        return segments[postingsIndex + 1];
+      }
+    }
+
+    if (hostname.endsWith("lever.co")) {
+      return segments[0] ?? null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function fetchGreenhouseApiPayload(sourceUrl: string): Promise<string> {
+  const boardToken = parseGreenhouseBoardToken(sourceUrl);
+  if (boardToken == null) {
+    throw new Error(`Unable to infer Greenhouse board token from ${sourceUrl}`);
+  }
+  const apiUrl = new URL(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(boardToken)}/jobs`);
+  apiUrl.searchParams.set("content", "true");
+  const response = await fetchWithTimeout(apiUrl, { headers: DEFAULT_HTTP_HEADERS }, SOURCE_API_FETCH_TIMEOUT_MS);
+  if (!response.ok) {
+    throw new Error(`Greenhouse API returned ${response.status} ${response.statusText} for board ${boardToken}`);
+  }
+  return await response.text();
+}
+
+async function fetchLeverApiPayload(sourceUrl: string): Promise<string> {
+  const siteToken = parseLeverSiteToken(sourceUrl);
+  if (siteToken == null) {
+    throw new Error(`Unable to infer Lever site token from ${sourceUrl}`);
+  }
+  const apiUrl = new URL(`https://api.lever.co/v0/postings/${encodeURIComponent(siteToken)}`);
+  apiUrl.searchParams.set("mode", "json");
+  const response = await fetchWithTimeout(apiUrl, { headers: DEFAULT_HTTP_HEADERS }, SOURCE_API_FETCH_TIMEOUT_MS);
+  if (!response.ok) {
+    throw new Error(`Lever API returned ${response.status} ${response.statusText} for site ${siteToken}`);
+  }
+  return await response.text();
+}
+
 async function fetchSourceHtml(source: ReturnType<CareerOpsPipeline["listSources"]>[number]): Promise<string> {
   if (source.kind === "linkedin") {
-    return fetchLinkedInGuestSearchHtml(source.sourceUrl);
+    try {
+      return await fetchLinkedInGuestSearchHtml(source.sourceUrl);
+    } catch (error) {
+      const guestFailureMessage = error instanceof Error ? error.message : String(error);
+      if (!isLinkedInGuestRateLimitError(error) && !/no job cards/i.test(guestFailureMessage)) {
+        throw error;
+      }
+      const fallbackHtml = await fetchPageHtml(source.sourceUrl, { persistent: source.usePersistentBrowser });
+      if (containsLinkedInSearchCards(fallbackHtml)) {
+        return fallbackHtml;
+      }
+      throw new Error(`LinkedIn guest search failed (${guestFailureMessage}). Browser fallback did not return any search cards.`);
+    }
+  }
+  if (source.kind === "greenhouse") {
+    try {
+      return await fetchGreenhouseApiPayload(source.sourceUrl);
+    } catch {
+      return fetchPageHtml(source.sourceUrl, { persistent: source.usePersistentBrowser });
+    }
+  }
+  if (source.kind === "lever") {
+    try {
+      return await fetchLeverApiPayload(source.sourceUrl);
+    } catch {
+      return fetchPageHtml(source.sourceUrl, { persistent: source.usePersistentBrowser });
+    }
   }
   if (source.kind === "levels") {
     return fetchPageHtml(normalizeLevelsSourceUrl(source.sourceUrl), { persistent: source.usePersistentBrowser });
   }
-  return fetchPageHtml(source.sourceUrl, { persistent: source.usePersistentBrowser });
+  const html = await fetchPageHtml(source.sourceUrl, { persistent: source.usePersistentBrowser });
+  if (!source.usePersistentBrowser && isBotProtectedSourceUrl(source.sourceUrl) && isLikelyAccessDeniedHtml(html)) {
+    try {
+      console.warn(`Detected possible anti-bot block for ${source.name}; retrying with persistent browser.`);
+      return await fetchPageHtml(source.sourceUrl, { persistent: true });
+    } catch {
+      return html;
+    }
+  }
+  return html;
 }
 
 async function syncOneSource(pipeline: CareerOpsPipeline, source: ReturnType<CareerOpsPipeline["listSources"]>[number]): Promise<SourceSyncRun> {
@@ -236,10 +664,12 @@ async function syncSelectedSources(
 ): Promise<SourceSyncRun[]> {
   const persistentSources = sources.filter((source) => source.usePersistentBrowser);
   const headlessSources = sources.filter((source) => !source.usePersistentBrowser);
+  const linkedinSources = headlessSources.filter((source) => source.kind === "linkedin");
+  const otherHeadlessSources = headlessSources.filter((source) => source.kind !== "linkedin");
   const queue = new PQueue({ concurrency });
 
   const headlessRunsPromise = Promise.all(
-    headlessSources.map((source) => queue.add(async () => {
+    otherHeadlessSources.map((source) => queue.add(async () => {
       const run = await syncOneSource(pipeline, source);
       onSourceSynced?.(run);
       return run;
@@ -253,8 +683,15 @@ async function syncSelectedSources(
     persistentRuns.push(run);
   }
 
+  const linkedinRuns: SourceSyncRun[] = [];
+  for (const source of linkedinSources) {
+    const run = await syncOneSource(pipeline, source);
+    onSourceSynced?.(run);
+    linkedinRuns.push(run);
+  }
+
   const headlessRuns = (await headlessRunsPromise).filter((run): run is SourceSyncRun => run != null);
-  return [...persistentRuns, ...headlessRuns];
+  return [...persistentRuns, ...headlessRuns, ...linkedinRuns];
 }
 
 function shouldEvaluateAfterSync(options: { evaluate?: boolean; skipEvaluate?: boolean }): boolean {
@@ -331,6 +768,25 @@ function parseBooleanFlag(value: string | undefined): boolean {
     return false;
   }
   return ["1", "true", "yes", "y", "on"].includes(value.trim().toLowerCase());
+}
+
+function isLinkedInUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return /(^|\.)linkedin\.com$/i.test(parsed.hostname);
+  } catch {
+    return /linkedin\.com/i.test(url);
+  }
+}
+
+async function waitForPageSettle(page: Page): Promise<void> {
+  await page.waitForLoadState("domcontentloaded", { timeout: 15000 }).catch(() => undefined);
+  await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => undefined);
+}
+
+async function openApplyPage(page: Page, targetUrl: string): Promise<void> {
+  await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await waitForPageSettle(page);
 }
 
 function resolveAnswerTokens(key: string): string[] {
@@ -748,10 +1204,14 @@ async function runShortlistAutoApply(options: AutoApplyOptions): Promise<AutoApp
         if (draft == null) {
           throw new Error(`Application draft missing for job ${candidate.job.id}.`);
         }
+        if (isLinkedInUrl(draft.targetUrl)) {
+          throw new Error(
+            "LinkedIn-hosted apply URLs are excluded from autoapply-shortlist. Use the external ATS/company apply URL or submit manually."
+          );
+        }
         const page = await context.newPage();
         try {
-          await page.goto(draft.targetUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
-          await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => undefined);
+          await openApplyPage(page, draft.targetUrl);
           if (options.waitMs > 0) {
             await page.waitForTimeout(options.waitMs).catch(() => undefined);
           }
@@ -936,6 +1396,19 @@ program
   });
 
 program
+  .command("clear-listings")
+  .description("Delete all job listings and listing-related artifacts from the local database")
+  .action(() => {
+    const pipeline = new CareerOpsPipeline(rootDir, dbPath);
+    try {
+      const result = pipeline.repo.clearListings();
+      console.log(JSON.stringify(result, null, 2));
+    } finally {
+      pipeline.dispose();
+    }
+  });
+
+program
   .command("register-source")
   .description("Register a discovery source URL for daily sync")
   .argument("<url>")
@@ -980,12 +1453,41 @@ program
 
 program
   .command("seed-toronto-sources")
-  .description("Seed default LinkedIn and Levels Toronto discovery sources")
+  .description("Seed default Toronto discovery sources (LinkedIn, Levels, and general boards)")
   .action(() => {
     const pipeline = new CareerOpsPipeline(rootDir, dbPath);
     try {
       const ids = pipeline.seedTorontoDiscoverySources();
       console.log(`Seeded ${ids.length} Toronto discovery sources: ${ids.join(", ")}`);
+    } finally {
+      pipeline.dispose();
+    }
+  });
+
+program
+  .command("sync-source")
+  .description("Sync one registered discovery source by id")
+  .argument("<sourceId>")
+  .option("--evaluate", "evaluate newly normalized jobs after sync")
+  .option("--skip-evaluate", "skip evaluation after sync (overrides --evaluate)")
+  .action(async (sourceId: string, options: { evaluate?: boolean; skipEvaluate?: boolean }) => {
+    const pipeline = new CareerOpsPipeline(rootDir, dbPath);
+    try {
+      const parsedSourceId = Number(sourceId);
+      if (!Number.isInteger(parsedSourceId) || parsedSourceId <= 0) {
+        throw new Error(`Invalid source id ${sourceId}. Expected a positive integer.`);
+      }
+      const source = pipeline.listSources({ activeOnly: false }).find((entry) => entry.id === parsedSourceId);
+      if (source == null) {
+        throw new Error(`No source found for id ${parsedSourceId}.`);
+      }
+      console.log(`Syncing source #${source.id} (${source.kind}) ${source.name}`);
+      const run = await syncOneSource(pipeline, source);
+      printSourceRuns([run]);
+      if (shouldEvaluateAfterSync(options)) {
+        const summary = await pipeline.evaluatePending(250);
+        console.log(JSON.stringify(summary, null, 2));
+      }
     } finally {
       pipeline.dispose();
     }

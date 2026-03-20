@@ -267,28 +267,33 @@ function buildDetailLines(record: JobRecordWithArtifacts | null, detailView: Det
 
 export function buildDashboardView(records: JobRecordWithArtifacts[], selectedIndex = 0, tab: TabKey = "all", detailView: DetailViewKey = "summary"): DashboardView {
   const sortedRecords = sortByNewestPosted(records);
-  const topRecords = sortedRecords.filter((record) => (record.evaluation?.totalScore ?? 0) >= 4);
   const noApplyRecords = sortedRecords.filter((record) => record.job.status === "rejected");
+  const activeRecords = sortedRecords.filter((record) => record.job.status !== "rejected");
+  const allRecords = activeRecords.filter((record) =>
+    record.job.status !== "shortlisted" && record.job.status !== "submitted" && record.job.status !== "blocked"
+  );
+  const topRecords = activeRecords.filter((record) => (record.evaluation?.totalScore ?? 0) >= 4);
   const filtered = (() => {
     switch (tab) {
       case "evaluated":
-        return sortedRecords.filter((record) => record.job.status === "evaluated" || record.job.status === "shortlisted" || record.job.status === "resume_ready" || record.job.status === "ready_to_apply" || record.job.status === "in_review");
+        return activeRecords.filter((record) => record.job.status === "evaluated" || record.job.status === "shortlisted" || record.job.status === "resume_ready" || record.job.status === "ready_to_apply" || record.job.status === "in_review");
       case "applied":
-        return sortedRecords.filter((record) => record.job.status === "submitted");
+        return activeRecords.filter((record) => record.job.status === "submitted");
       case "interview":
-        return sortedRecords.filter((record) => record.job.status === "blocked");
+        return activeRecords.filter((record) => record.job.status === "blocked");
       case "shortlisted":
-        return sortedRecords.filter((record) => record.job.status === "shortlisted");
+        return activeRecords.filter((record) => record.job.status === "shortlisted");
       case "top":
         return topRecords;
       case "no_apply":
         return noApplyRecords;
       default:
-        return sortedRecords;
+        return allRecords;
     }
   })();
 
-  const current = filtered[Math.max(0, Math.min(selectedIndex, filtered.length - 1))] ?? sortedRecords[0] ?? null;
+  const fallbackRecords = tab === "no_apply" ? noApplyRecords : tab === "all" ? allRecords : activeRecords;
+  const current = filtered[Math.max(0, Math.min(selectedIndex, filtered.length - 1))] ?? fallbackRecords[0] ?? null;
   const tableRows = filtered.map((record) => [
     (record.evaluation?.totalScore ?? 0).toFixed(1),
     record.evaluation?.grade ?? "-",
@@ -302,20 +307,20 @@ export function buildDashboardView(records: JobRecordWithArtifacts[], selectedIn
 
   return {
     tabs: [
-      { key: "all", label: "All", count: sortedRecords.length },
-      { key: "evaluated", label: "Evaluated", count: sortedRecords.filter((record) => record.evaluation != null).length },
-      { key: "shortlisted", label: "Shortlist", count: sortedRecords.filter((record) => record.job.status === "shortlisted").length },
-      { key: "applied", label: "Applied", count: sortedRecords.filter((record) => record.job.status === "submitted").length },
-      { key: "interview", label: "Interview", count: sortedRecords.filter((record) => record.job.status === "blocked").length },
+      { key: "all", label: "All", count: allRecords.length },
+      { key: "evaluated", label: "Evaluated", count: activeRecords.filter((record) => record.evaluation != null).length },
+      { key: "shortlisted", label: "Shortlist", count: activeRecords.filter((record) => record.job.status === "shortlisted").length },
+      { key: "applied", label: "Applied", count: activeRecords.filter((record) => record.job.status === "submitted").length },
+      { key: "interview", label: "Interview", count: activeRecords.filter((record) => record.job.status === "blocked").length },
       { key: "top", label: "Top >=4", count: topRecords.length },
       { key: "no_apply", label: "Do not apply", count: noApplyRecords.length }
     ],
     statusLine: [
-      formatCount("Interview", sortedRecords.filter((record) => record.job.status === "blocked").length),
-      formatCount("Applied", sortedRecords.filter((record) => record.job.status === "submitted").length),
-      formatCount("Evaluated", sortedRecords.filter((record) => record.evaluation != null).length),
-      formatCount("Resume ready", sortedRecords.filter((record) => record.job.status === "resume_ready").length),
-      formatCount("Ready to apply", sortedRecords.filter((record) => record.job.status === "ready_to_apply" || record.job.status === "in_review").length),
+      formatCount("Interview", activeRecords.filter((record) => record.job.status === "blocked").length),
+      formatCount("Applied", activeRecords.filter((record) => record.job.status === "submitted").length),
+      formatCount("Evaluated", activeRecords.filter((record) => record.evaluation != null).length),
+      formatCount("Resume ready", activeRecords.filter((record) => record.job.status === "resume_ready").length),
+      formatCount("Ready to apply", activeRecords.filter((record) => record.job.status === "ready_to_apply" || record.job.status === "in_review").length),
       formatCount("Do not apply", noApplyRecords.length)
     ].join("   "),
     tableRows,

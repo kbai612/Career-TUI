@@ -87,6 +87,7 @@ Builds an application draft with:
 The `review-apply` mode opens a headed browser session, prefills fields, and stops for manual user review. It does not auto-submit.
 
 The `autoapply-shortlist` mode can run through shortlisted jobs in bulk, open each posting in Playwright, prefill fields, upload your resume, and optionally attempt submit clicks.
+LinkedIn-hosted apply URLs are excluded from `autoapply-shortlist`; use external ATS/company apply URLs or submit those manually.
 
 ### 5. Research, outreach, and training
 
@@ -237,6 +238,7 @@ Each source stores:
 Persistent-browser sources are executed one at a time because they share a single local Chrome profile.
 
 LinkedIn discovery uses the public guest-search job HTML rather than an interactive logged-in session.
+During sync, Career Ops resolves LinkedIn job-view links to external ATS/company apply URLs when available and still keeps LinkedIn-hosted apply links when no external URL is exposed.
 
 Recommended Toronto setup:
 

@@ -39,6 +39,109 @@ function normalizeText(value: string | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
+function parseJsonSafely<T>(value: string): T | null {
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
+function stripHtml(value: string | undefined): string {
+  return normalizeText((value ?? "").replace(/<[^>]+>/g, " "));
+}
+
+function normalizePostedAt(value: unknown): string | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const normalized = value > 1_000_000_000_000 ? value : value * 1000;
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+  }
+  if (typeof value === "string") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+  }
+  return undefined;
+}
+
+function parseRelativePostedAt(value: string): string | undefined {
+  const normalized = normalizeText(value).toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized.includes("just now") || normalized === "today") {
+    return new Date().toISOString();
+  }
+  if (normalized.includes("yesterday")) {
+    return new Date(Date.now() - (24 * 60 * 60 * 1000)).toISOString();
+  }
+
+  const relativeMatch = normalized.match(/(\d+)\s*\+?\s*(minute|hour|day|week|month|year)s?\s+ago/);
+  if (relativeMatch == null) {
+    return undefined;
+  }
+
+  const amount = Number.parseInt(relativeMatch[1], 10);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return undefined;
+  }
+
+  const unit = relativeMatch[2];
+  const unitMs = (() => {
+    switch (unit) {
+      case "minute":
+        return 60 * 1000;
+      case "hour":
+        return 60 * 60 * 1000;
+      case "day":
+        return 24 * 60 * 60 * 1000;
+      case "week":
+        return 7 * 24 * 60 * 60 * 1000;
+      case "month":
+        return 30 * 24 * 60 * 60 * 1000;
+      case "year":
+        return 365 * 24 * 60 * 60 * 1000;
+      default:
+        return 0;
+    }
+  })();
+  if (unitMs <= 0) {
+    return undefined;
+  }
+
+  return new Date(Date.now() - (amount * unitMs)).toISOString();
+}
+
+function parseLinkedInPostedAt(card: { find: (selector: string) => any }, metaText: string | undefined): string | undefined {
+  const datetimeRaw = normalizeText(card.find("time[datetime]").first().attr("datetime"));
+  const parsedDatetime = normalizePostedAt(datetimeRaw);
+  const relativeFromTime = parseRelativePostedAt(card.find("time").first().text());
+  if (datetimeRaw.length > 0 && !datetimeRaw.includes("T") && relativeFromTime != null) {
+    return relativeFromTime;
+  }
+  if (parsedDatetime != null) {
+    return parsedDatetime;
+  }
+  if (relativeFromTime != null) {
+    return relativeFromTime;
+  }
+  if (metaText == null) {
+    return undefined;
+  }
+  return parseRelativePostedAt(metaText);
+}
+
+function isLinkedInUrl(value: string): boolean {
+  try {
+    return /(^|\.)linkedin\.com$/i.test(new URL(value).hostname);
+  } catch {
+    return /linkedin\.com/i.test(value);
+  }
+}
+
 function extractListing($card: ReturnType<typeof load>, sourceUrl: string, portal: string, selectors: {
   title: string;
   link: string;
@@ -270,10 +373,154 @@ function parseLevelsLocationPage(html: string, sourceUrl: string): JobListing[] 
   return jobs;
 }
 
+function parseWorkopolisSearchListings(html: string, sourceUrl: string): JobListing[] {
+  const $ = load(html);
+  const jobs: JobListing[] = [];
+
+  $("[data-testid='searchSerpJob']").each((_, element) => {
+    const card = $(element);
+    const link = card.find("a[href*='/jobsearch/viewjob/']").first();
+    const title = normalizeText(card.find("[data-testid='searchSerpJobTitle']").first().text() || link.text());
+    const href = link.attr("href");
+    if (!title || !href) {
+      return;
+    }
+
+    const company = normalizeText(card.find("[data-testid='companyName'], [data-testid*='company']").first().text()) || hostnameCompany(sourceUrl);
+    const location = normalizeText(card.find("[data-testid='searchSerpJobLocation'], [data-testid*='location']").first().text()) || "Unknown";
+    const salaryText = normalizeText(card.find("[data-testid^='salaryChip']").first().text()) || undefined;
+    const allChipsText = normalizeText(card.find("[data-testid='variant2-allChips']").first().text()) || undefined;
+    const description = normalizeText(card.find("p").first().text()) || undefined;
+    const compensationSource = salaryText ?? allChipsText ?? description;
+
+    jobs.push({
+      portal: "generic",
+      sourceUrl,
+      applyUrl: absoluteUrl(sourceUrl, href),
+      company,
+      title,
+      location,
+      description,
+      metadata: compensationSource ? parseCompensation(compensationSource) : undefined,
+      ...parseCompensation(compensationSource)
+    });
+  });
+
+  return jobs;
+}
+
+interface GreenhouseApiResponse {
+  jobs?: Array<{
+    id?: number | string;
+    title?: string;
+    absolute_url?: string;
+    updated_at?: string;
+    created_at?: string;
+    content?: string;
+    location?: {
+      name?: string;
+    };
+  }>;
+}
+
+function parseGreenhouseApiListings(raw: string, sourceUrl: string): JobListing[] {
+  const parsed = parseJsonSafely<GreenhouseApiResponse>(raw);
+  const jobs = parsed?.jobs;
+  if (!Array.isArray(jobs)) {
+    return [];
+  }
+  const listings: JobListing[] = [];
+  for (const job of jobs) {
+    const title = normalizeText(job.title);
+    const applyUrl = typeof job.absolute_url === "string" ? canonicalizeUrl(job.absolute_url) : "";
+    if (!title || !applyUrl) {
+      continue;
+    }
+    const location = normalizeText(job.location?.name) || "Unknown";
+    const description = stripHtml(job.content);
+    const postedAt = normalizePostedAt(job.updated_at ?? job.created_at);
+    const compensationSource = description || undefined;
+
+    listings.push({
+      portal: "greenhouse",
+      sourceUrl,
+      applyUrl,
+      company: boardCompany(sourceUrl),
+      title,
+      location,
+      postedAt,
+      description: description || undefined,
+      externalId: job.id == null ? undefined : String(job.id),
+      metadata: {
+        apiSource: "greenhouse",
+        greenhouseJobId: job.id
+      },
+      ...parseCompensation(compensationSource)
+    });
+  }
+  return listings;
+}
+
+interface LeverApiPosting {
+  id?: string;
+  text?: string;
+  hostedUrl?: string;
+  createdAt?: number | string;
+  description?: string;
+  descriptionPlain?: string;
+  categories?: {
+    location?: string;
+    commitment?: string;
+  };
+}
+
+function parseLeverApiListings(raw: string, sourceUrl: string): JobListing[] {
+  const parsed = parseJsonSafely<LeverApiPosting[]>(raw);
+  if (!Array.isArray(parsed)) {
+    return [];
+  }
+  const listings: JobListing[] = [];
+  for (const job of parsed) {
+    const title = normalizeText(job.text);
+    const applyUrl = typeof job.hostedUrl === "string" ? canonicalizeUrl(job.hostedUrl) : "";
+    if (!title || !applyUrl) {
+      continue;
+    }
+    const location = normalizeText(job.categories?.location) || "Unknown";
+    const employmentType = normalizeText(job.categories?.commitment) || undefined;
+    const description = normalizeText(job.descriptionPlain ?? stripHtml(job.description));
+    const postedAt = normalizePostedAt(job.createdAt);
+    const compensationSource = [description, location, employmentType].filter((part) => part != null && part.length > 0).join(" ");
+
+    listings.push({
+      portal: "lever",
+      sourceUrl,
+      applyUrl,
+      company: boardCompany(sourceUrl),
+      title,
+      location,
+      postedAt,
+      employmentType,
+      description: description || undefined,
+      externalId: job.id,
+      metadata: {
+        apiSource: "lever",
+        leverJobId: job.id
+      },
+      ...parseCompensation(compensationSource || undefined)
+    });
+  }
+  return listings;
+}
+
 export const greenhouseAdapter: PortalAdapter = {
   portal: "greenhouse",
   matches: (sourceUrl) => /greenhouse\.io/i.test(sourceUrl),
   discoverListings(html, sourceUrl) {
+    const apiListings = parseGreenhouseApiListings(html, sourceUrl);
+    if (apiListings.length > 0) {
+      return apiListings;
+    }
     const $ = load(html);
     const rowListings: JobListing[] = [];
     $("tr.job-post, div.opening, li.opening").each((_, element) => {
@@ -320,6 +567,10 @@ export const leverAdapter: PortalAdapter = {
   portal: "lever",
   matches: (sourceUrl) => /lever\.co/i.test(sourceUrl),
   discoverListings(html, sourceUrl) {
+    const apiListings = parseLeverApiListings(html, sourceUrl);
+    if (apiListings.length > 0) {
+      return apiListings;
+    }
     const $ = load(html);
     const listings: JobListing[] = [];
     $("div.posting").each((_, element) => {
@@ -389,24 +640,80 @@ export const linkedinAdapter: PortalAdapter = {
   matches: (sourceUrl) => /linkedin\.com\/jobs/i.test(sourceUrl),
   discoverListings(html, sourceUrl) {
     const $ = load(html);
-    const jobs = extractListing($, sourceUrl, "linkedin", {
-      title: ".base-search-card__title, .job-search-card__title, h3.base-search-card__title, h3",
-      link: "a.base-card__full-link, a.base-card__link, a[href*='/jobs/view/']",
-      company: ".base-search-card__subtitle, .job-search-card__subtitle, h4.base-search-card__subtitle",
-      location: ".job-search-card__location, .base-search-card__metadata, .job-search-card__listdate",
-      meta: ".base-search-card__metadata, time"
-    }).map((listing) => ({
-      ...listing,
-      metadata: {
-        ...(listing.metadata ?? {}),
-        nonCanonicalDiscovery: true
+    const jobs: JobListing[] = [];
+    const seenApplyUrls = new Set<string>();
+    $(".base-search-card, .job-search-card, li.jobs-search-results__list-item, li[class*='jobs-search-results__list-item']").each((_, element) => {
+      const card = $(element);
+      const anchor = card.find("a.base-card__full-link, a.base-card__link, a[href*='/jobs/view/']").first();
+      const href = anchor.attr("href");
+      const title = normalizeText(card.find(".base-search-card__title, .job-search-card__title, h3.base-search-card__title, h3").first().text() || anchor.text());
+      if (!title || !href) {
+        return;
       }
-    }));
-    if (jobs.length > 0) {
-      return jobs;
+      const applyUrl = absoluteUrl(sourceUrl, href);
+      if (seenApplyUrls.has(applyUrl)) {
+        return;
+      }
+      seenApplyUrls.add(applyUrl);
+      const metaText = normalizeText(card.find(".base-search-card__metadata, .job-search-card__listdate, time").first().text()) || undefined;
+      jobs.push({
+        portal: "linkedin",
+        sourceUrl,
+        applyUrl,
+        company: normalizeText(card.find(".base-search-card__subtitle, .job-search-card__subtitle, h4.base-search-card__subtitle").first().text()) || hostnameCompany(sourceUrl),
+        title,
+        location: normalizeText(card.find(".job-search-card__location, .base-search-card__location").first().text())
+          || normalizeText(card.find(".base-search-card__metadata").first().text())
+          || "Unknown",
+        postedAt: parseLinkedInPostedAt(card, metaText),
+        description: metaText,
+        metadata: {
+          ...parseCompensation(metaText),
+          nonCanonicalDiscovery: true
+        },
+        ...parseCompensation(metaText)
+      });
+    });
+    const discoveredJobs = jobs.length > 0
+      ? jobs
+      : extractListing($, sourceUrl, "linkedin", {
+          title: ".base-search-card__title, .job-search-card__title, h3.base-search-card__title, h3",
+          link: "a.base-card__full-link, a.base-card__link, a[href*='/jobs/view/']",
+          company: ".base-search-card__subtitle, .job-search-card__subtitle, h4.base-search-card__subtitle",
+          location: ".job-search-card__location, .base-search-card__metadata, .job-search-card__listdate",
+          meta: ".base-search-card__metadata, time"
+        }).map((listing) => ({
+          ...listing,
+          postedAt: listing.postedAt ?? parseRelativePostedAt(listing.description ?? ""),
+          metadata: {
+            ...(listing.metadata ?? {}),
+            nonCanonicalDiscovery: true
+          }
+        }));
+
+    if (discoveredJobs.length > 0) {
+      return discoveredJobs.map((listing) => ({
+        ...listing,
+        metadata: {
+          ...(listing.metadata ?? {}),
+          ...(isLinkedInUrl(listing.applyUrl) ? { linkedinHostedApply: true } : {})
+        }
+      }));
     }
     const direct = parseLinkedInDirectListing($, sourceUrl);
-    return direct == null ? [] : [direct];
+    if (direct == null) {
+      return [];
+    }
+    if (!isLinkedInUrl(direct.applyUrl)) {
+      return [direct];
+    }
+    return [{
+      ...direct,
+      metadata: {
+        ...(direct.metadata ?? {}),
+        linkedinHostedApply: true
+      }
+    }];
   }
 };
 
@@ -448,6 +755,12 @@ export const genericCareersAdapter: PortalAdapter = {
   portal: "generic",
   matches: () => true,
   discoverListings(html, sourceUrl) {
+    if (/workopolis\.com/i.test(sourceUrl)) {
+      const workopolisListings = parseWorkopolisSearchListings(html, sourceUrl);
+      if (workopolisListings.length > 0) {
+        return workopolisListings;
+      }
+    }
     const $ = load(html);
     const listings = extractListing($, sourceUrl, "generic", {
       title: "h2, h3, h4",

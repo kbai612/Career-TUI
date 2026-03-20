@@ -1,11 +1,12 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import blessed from "neo-blessed";
-import { CareerOpsPipeline, canTransition, ensureDataPaths } from "@career-ops/core";
+import { CareerOpsPipeline, canTransition, ensureDataPaths, loadRootEnv, type ApplicationState } from "@career-ops/core";
 import { openExternalUrl } from "./browser";
 import { buildDashboardTableData, buildDashboardView, type DetailViewKey, type TabKey } from "./state";
 
 const rootDir = path.resolve(process.cwd());
+loadRootEnv(rootDir);
 const { dbPath } = ensureDataPaths(rootDir);
 const workerEntrypoint = path.resolve(rootDir, "apps", "worker", "dist", "apps", "worker", "src", "index.js");
 const pipeline = new CareerOpsPipeline(rootDir, dbPath);
@@ -29,7 +30,8 @@ const table = blessed.listtable({
   border: { type: "line" },
   align: "left",
   tags: true,
-  keys: true,
+  // Keep row navigation centralized in screen-level handlers to avoid double-handling arrows.
+  keys: false,
   mouse: true,
   style: {
     header: { fg: "cyan", bold: true },
@@ -91,8 +93,8 @@ const actionsButtonsPane = blessed.box({
   parent: actionsPanel,
   top: 0,
   left: 0,
-  width: "40%",
-  height: "68%",
+  width: "100%",
+  height: "40%",
   border: { type: "line" },
   label: " COMMANDS ",
   tags: true,
@@ -105,10 +107,10 @@ const actionsButtonsPane = blessed.box({
 });
 const actionsDescription = blessed.box({
   parent: actionsPanel,
-  top: "68%",
+  top: "40%",
   left: 0,
-  width: "40%",
-  height: "32%",
+  width: "100%",
+  height: "16%",
   border: { type: "line" },
   label: " DESCRIPTION ",
   tags: true,
@@ -118,10 +120,10 @@ const actionsDescription = blessed.box({
 });
 const actionsOutput = blessed.box({
   parent: actionsPanel,
-  top: 0,
-  left: "40%",
-  width: "60%",
-  height: "100%",
+  top: "56%",
+  left: 0,
+  width: "100%",
+  height: "44%",
   border: { type: "line" },
   label: " OUTPUT ",
   tags: true,
@@ -171,12 +173,70 @@ const actionOutputEntries: string[] = [
   `[${actionTimestamp()}] Active`
 ];
 const actionButtons: any[] = [];
+const ACTION_BUTTON_COLUMNS = 2;
+const ACTION_BUTTON_HEIGHT = 3;
 
 interface ManualAction {
   label: string;
   hint: string;
   description: string;
   run: () => Promise<string | void> | string | void;
+}
+
+let manualActions: ManualAction[] = [];
+
+function truncateWithEllipsis(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  if (maxLength <= 3) {
+    return value.slice(0, maxLength);
+  }
+  return `${value.slice(0, maxLength - 3)}...`;
+}
+
+function sourceWebsiteLabel(sourceUrl: string): string {
+  try {
+    const parsed = new URL(sourceUrl);
+    const host = parsed.hostname.replace(/^www\./i, "");
+    const normalizedPath = parsed.pathname.replace(/\/+$/, "");
+    if (normalizedPath.length === 0 || normalizedPath === "/") {
+      return host;
+    }
+    return `${host}${normalizedPath}`;
+  } catch {
+    return sourceUrl;
+  }
+}
+
+function buildPerSourceCrawlActions(): ManualAction[] {
+  const sources = pipeline
+    .listSources({ activeOnly: true })
+    .sort((left, right) => left.id - right.id);
+  return sources.map((source) => ({
+    label: `Crawl ${truncateWithEllipsis(sourceWebsiteLabel(source.sourceUrl), 34)}`,
+    hint: `${source.kind} | ${source.regionId} | ${truncateWithEllipsis(source.name, 28)}`,
+    description: `Crawl-only sync for source #${source.id} (${source.name}).\n${source.sourceUrl}`,
+    run: () => runWorkerCommandLive(["sync-source", String(source.id), "--skip-evaluate"])
+  }));
+}
+
+async function runCrawlActionsByKind(kind: "greenhouse" | "lever"): Promise<string> {
+  const sources = pipeline
+    .listSources({ activeOnly: true })
+    .filter((source) => source.kind === kind)
+    .sort((left, right) => left.id - right.id);
+
+  if (sources.length === 0) {
+    return `No active ${kind} sources found. Register one first, then retry.`;
+  }
+
+  appendActionOutput(`Found ${sources.length} active ${kind} source(s).`);
+  for (const source of sources) {
+    appendActionOutput(`Testing ${source.name} (#${source.id})`);
+    await runWorkerCommandLive(["sync-source", String(source.id), "--skip-evaluate"]);
+  }
+  return `Completed ${kind} crawl test for ${sources.length} source(s).`;
 }
 
 function currentView() {
@@ -321,7 +381,8 @@ function focusManualAction(nextIndex: number): void {
   actionsFocusIndex = Math.max(0, Math.min(nextIndex, actionButtons.length - 1));
   const button = actionButtons[actionsFocusIndex];
   button.focus();
-  const targetScroll = Math.max(0, actionsFocusIndex * 3 - 3);
+  const actionRow = Math.floor(actionsFocusIndex / ACTION_BUTTON_COLUMNS);
+  const targetScroll = Math.max(0, actionRow * ACTION_BUTTON_HEIGHT - ACTION_BUTTON_HEIGHT);
   actionsButtonsPane.setScroll(targetScroll);
   setActionDescription(actionsFocusIndex);
   screen.render();
@@ -333,7 +394,12 @@ function scrollActionsOutput(delta: number): void {
   screen.render();
 }
 
-const manualActions: ManualAction[] = [
+function isMissingResumeErrorMessage(message: string): boolean {
+  return /resume path is required/i.test(message)
+    || /CAREER_OPS_UPLOADED_RESUME/i.test(message);
+}
+
+const baseManualActions: ManualAction[] = [
   {
     label: "Seed Toronto Sources",
     hint: "Reset and seed the default Toronto source pack",
@@ -353,6 +419,24 @@ const manualActions: ManualAction[] = [
     run: () => runWorkerCommandLive(["sync-sources", "--region", "toronto-canada", "--concurrency", "3", "--evaluate"])
   },
   {
+    label: "Test Greenhouse (Crawl)",
+    hint: "Crawl all active Greenhouse sources",
+    description: "Runs crawl-only sync for every active Greenhouse source, using API-first worker logic with fallback behavior.",
+    run: () => runCrawlActionsByKind("greenhouse")
+  },
+  {
+    label: "Test Lever (Crawl)",
+    hint: "Crawl all active Lever sources",
+    description: "Runs crawl-only sync for every active Lever source, using API-first worker logic with fallback behavior.",
+    run: () => runCrawlActionsByKind("lever")
+  },
+  {
+    label: "Clear All Listings",
+    hint: "Delete all job rows and artifacts",
+    description: "Deletes every listing and related evaluation/resume/application/research/contact record from the local database.",
+    run: () => runWorkerCommandLive(["clear-listings"])
+  },
+  {
     label: "Evaluate Pending",
     hint: "Evaluate up to 250 normalized jobs",
     description: "Evaluates jobs in normalized state directly from the pipeline without spawning the worker command.",
@@ -369,63 +453,88 @@ const manualActions: ManualAction[] = [
     }
   },
   {
-    label: "Generate Resume (Selected)",
-    hint: "Create resume artifact for selected job",
-    description: "Generates resume and cover-letter artifacts for the selected job and stores the artifact paths.",
-    run: async () => {
-      const jobId = getSelectedJobIdOrThrow();
-      const artifactPath = await pipeline.generateResume(jobId);
-      return `Resume generated for #${jobId}: ${artifactPath}`;
-    }
-  },
-  {
-    label: "Draft Apply (Selected)",
-    hint: "Generate application draft for selected job",
-    description: "Builds and stores a review-required application draft for the selected job.",
-    run: async () => {
-      const jobId = getSelectedJobIdOrThrow();
-      await pipeline.draftApplication(jobId);
-      return `Application draft generated for #${jobId}.`;
-    }
-  },
-  {
     label: "Autoapply Shortlist",
     hint: "Bulk prefill shortlist jobs with uploaded resume",
-    description: "Runs worker autoapply-shortlist. Set CAREER_OPS_UPLOADED_RESUME (and optional CAREER_OPS_AUTOAPPLY_INFO_JSON / CAREER_OPS_AUTOAPPLY_SUBMIT=1) in your environment before running.",
-    run: () => runWorkerCommand(["autoapply-shortlist"])
-  },
-  {
-    label: "Deep Research (Selected)",
-    hint: "Generate company research for selected job",
-    description: "Generates and saves deep company research signals and risks for the selected job.",
+    description: "Runs worker autoapply-shortlist. Set CAREER_OPS_UPLOADED_RESUME (and optional CAREER_OPS_AUTOAPPLY_INFO_JSON / CAREER_OPS_AUTOAPPLY_SUBMIT=1) before running. LinkedIn-hosted apply URLs are skipped.",
     run: async () => {
-      const jobId = getSelectedJobIdOrThrow();
-      const report = await pipeline.researchCompany(jobId);
-      return `Research updated for #${jobId}: ${report.company}`;
-    }
-  },
-  {
-    label: "Contact Draft (Selected)",
-    hint: "Generate outreach draft for selected job",
-    description: "Generates recruiter/hiring-manager outreach copy for the selected job and stores the draft.",
-    run: async () => {
-      const jobId = getSelectedJobIdOrThrow();
-      const draft = await pipeline.draftContact(jobId);
-      return `Contact draft updated for #${jobId}: ${draft.subject}`;
-    }
-  },
-  {
-    label: "Open Posting (Selected)",
-    hint: "Open selected job apply URL in your browser",
-    description: "Opens the selected job's canonical apply URL using the system browser integration.",
-    run: async () => {
-      const jobId = getSelectedJobIdOrThrow();
-      const record = repository.getJobRecord(jobId);
-      await openExternalUrl(record.job.applyUrl);
-      return `Opened posting for #${jobId}: ${record.job.applyUrl}`;
+      try {
+        return await runWorkerCommand(["autoapply-shortlist"]);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (isMissingResumeErrorMessage(message)) {
+          throw new Error("ERROR: MISSING RESUME");
+        }
+        throw error;
+      }
     }
   }
 ];
+
+function buildManualActions(): ManualAction[] {
+  return [...baseManualActions, ...buildPerSourceCrawlActions()];
+}
+
+const applicationStates: ApplicationState[] = [
+  "discovered",
+  "normalized",
+  "evaluated",
+  "rejected",
+  "shortlisted",
+  "resume_ready",
+  "ready_to_apply",
+  "in_review",
+  "submitted",
+  "blocked",
+  "error"
+];
+
+function findStatusPath(from: ApplicationState, to: ApplicationState): ApplicationState[] | null {
+  if (from === to) {
+    return [from];
+  }
+
+  const queue: Array<{ state: ApplicationState; path: ApplicationState[] }> = [{ state: from, path: [from] }];
+  const visited = new Set<ApplicationState>([from]);
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (current == null) {
+      continue;
+    }
+
+    for (const candidate of applicationStates) {
+      if (!canTransition(current.state, candidate) || visited.has(candidate)) {
+        continue;
+      }
+      const nextPath = [...current.path, candidate];
+      if (candidate === to) {
+        return nextPath;
+      }
+      visited.add(candidate);
+      queue.push({ state: candidate, path: nextPath });
+    }
+  }
+
+  return null;
+}
+
+function markJobAsApplied(jobId: number): { ok: boolean; message: string } {
+  const record = repository.getJobRecord(jobId);
+  const company = record.job.company;
+  if (record.job.status === "submitted") {
+    return { ok: true, message: `${company} already marked as applied` };
+  }
+
+  const path = findStatusPath(record.job.status, "submitted");
+  if (path == null) {
+    return { ok: false, message: `Cannot mark applied from ${record.job.status}` };
+  }
+
+  for (const nextStatus of path.slice(1)) {
+    repository.updateJobStatus(jobId, nextStatus);
+  }
+  return { ok: true, message: `Applied to ${company}` };
+}
 
 async function runManualAction(index: number): Promise<void> {
   const action = manualActions[index];
@@ -454,10 +563,16 @@ async function runManualAction(index: number): Promise<void> {
     resetReportViewerScroll();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    appendActionOutput(`${action.label} failed\n${message}`);
+    if (message === "ERROR: MISSING RESUME") {
+      appendActionOutput(message);
+    } else {
+      appendActionOutput(`${action.label} failed\n${message}`);
+    }
     setStatusMessage(`Failed ${action.label}`);
   } finally {
     actionInProgress = false;
+    repository.refreshJobs();
+    reloadActionButtons();
     render();
     if (actionsViewOpen) {
       focusManualAction(actionsFocusIndex);
@@ -465,14 +580,37 @@ async function runManualAction(index: number): Promise<void> {
   }
 }
 
+function clearActionButtons(): void {
+  const focusedElement = screen.focused as any;
+  if (focusedElement != null && actionButtons.includes(focusedElement)) {
+    actionsButtonsPane.focus();
+  }
+  for (const button of actionButtons.splice(0, actionButtons.length)) {
+    button.detach();
+    button.destroy();
+  }
+  actionsButtonsPane.setScroll(0);
+}
+
+function reloadActionButtons(): void {
+  manualActions = buildManualActions();
+  if (actionsFocusIndex > Math.max(0, manualActions.length - 1)) {
+    actionsFocusIndex = Math.max(0, manualActions.length - 1);
+  }
+  clearActionButtons();
+  initializeActionButtons();
+}
+
 function initializeActionButtons(): void {
   manualActions.forEach((action, index) => {
+    const row = Math.floor(index / ACTION_BUTTON_COLUMNS);
+    const column = index % ACTION_BUTTON_COLUMNS;
     const button = blessed.button({
       parent: actionsButtonsPane,
-      top: index * 3,
-      left: 1,
-      width: "100%-3",
-      height: 3,
+      top: row * ACTION_BUTTON_HEIGHT,
+      left: column === 0 ? 1 : "50%+1",
+      width: "50%-2",
+      height: ACTION_BUTTON_HEIGHT,
       mouse: true,
       keys: false,
       tags: true,
@@ -531,6 +669,7 @@ function openActionsView(): void {
     reportViewerOpen = false;
     reportViewer.hide();
   }
+  reloadActionButtons();
   actionsViewOpen = true;
   render();
   focusManualAction(actionsFocusIndex);
@@ -548,6 +687,12 @@ function withSelectedJob(action: (jobId: number) => void): void {
   if (jobId != null) {
     action(jobId);
   }
+}
+
+function refreshDashboard(): void {
+  repository.refreshJobs();
+  setStatusMessage("Refreshed");
+  render();
 }
 
 async function withSelectedJobAsync(action: (jobId: number) => Promise<void>): Promise<void> {
@@ -573,11 +718,26 @@ function render(): void {
     : 0;
   const view = buildDashboardView(records, selectedIndex, tab, detailView);
   selectedIndex = Math.max(0, Math.min(selectedIndex, Math.max(0, view.visibleJobIds.length - 1)));
-  const tabLine = `${view.tabs.map((item) => `${item.key === tab ? "{blue-fg}" : ""}${item.label} (${item.count})${item.key === tab ? "{/blue-fg}" : ""}`).join("   ")}   ${actionsViewOpen ? "{blue-fg}Actions{/blue-fg}" : "Actions (8)"}`;
-
-  header.setContent(`{cyan-fg}Career pipeline{/cyan-fg}\n${tabLine}`);
-  headerStats.setContent(`${records.length} offers | Avg ${averageScore.toFixed(1)}/5`);
-  counters.setContent(view.statusLine);
+  if (actionsViewOpen) {
+    header.height = 1;
+    actionsPanel.top = 1;
+    actionsPanel.height = "100%-2";
+    header.setContent("{cyan-fg}Actions View{/cyan-fg}");
+    headerStats.hide();
+    counters.hide();
+    controls.hide();
+  } else {
+    header.height = 3;
+    actionsPanel.top = 8;
+    actionsPanel.height = "100%-9";
+    const tabLine = `${view.tabs.map((item) => `${item.key === tab ? "{blue-fg}" : ""}${item.label} (${item.count})${item.key === tab ? "{/blue-fg}" : ""}`).join("   ")}   Actions (8)`;
+    header.setContent(`{cyan-fg}Career pipeline{/cyan-fg}\n${tabLine}`);
+    headerStats.setContent(`${records.length} offers | Avg ${averageScore.toFixed(1)}/5`);
+    counters.setContent(view.statusLine);
+    headerStats.show();
+    counters.show();
+    controls.show();
+  }
   table.setData(buildDashboardTableData(view.tableRows, getTableWidth()));
   if (view.tableRows.length > 0) {
     table.select(Math.min(selectedIndex + 1, view.tableRows.length));
@@ -596,8 +756,7 @@ function render(): void {
     table.hide();
     detail.hide();
     reportViewer.hide();
-    controls.setContent("[ACTIONS VIEW]   ENTER RUN   UP/DOWN SELECT   HOVER SHOWS DESC   PGUP/PGDN OUTPUT   HOME/END OUTPUT   8 CLOSE   Q QUIT");
-    footer.setContent(`${statusMessage}   ENTER RUN BUTTON   CLICK BUTTONS   8 CLOSE ACTIONS   Q QUIT`);
+    footer.setContent("Actions View");
   } else {
     actionsPanel.hide();
     table.show();
@@ -608,7 +767,7 @@ function render(): void {
     } else {
       reportViewer.hide();
     }
-    controls.setContent(`[SORT: DATE DESC]   [VIEW: ${detailView.toUpperCase()}]   R REFRESH   L OPEN LINK   1-7 TABS   8 ACTIONS   X REJECT   A SHORTLIST   I INTERVIEW   D RESEARCH   M CONTACT   V NEXT VIEW   Q QUIT`);
+    controls.setContent(`[SORT: DATE DESC]   [VIEW: ${detailView.toUpperCase()}]   R REFRESH   L OPEN LINK   1-7 TABS   8 ACTIONS   X REJECT   S SHORTLIST   A APPLIED   I INTERVIEW   D RESEARCH   M CONTACT   V NEXT VIEW   Q QUIT`);
     footer.setContent(reportViewerOpen
       ? `${statusMessage}   L OPEN LINK  UP/DOWN SCROLL  PGUP/PGDN PAGE  HOME/END JUMP  ESC CLOSE VIEWER  Q QUIT`
       : `${statusMessage}   NAV  TABS  ENTER OPEN REPORT  8 ACTIONS  L OPEN LINK  PGUP/PGDN SCROLL  V VIEW  D RESEARCH  M CONTACT  Q QUIT`);
@@ -617,7 +776,7 @@ function render(): void {
   screen.render();
 }
 
-initializeActionButtons();
+reloadActionButtons();
 
 screen.key(["q", "C-c"], () => {
   pipeline.dispose();
@@ -645,8 +804,8 @@ screen.key(["8"], () => {
   openActionsView();
 });
 
-screen.key(["r"], () => {
-  render();
+screen.key(["r", "R"], () => {
+  refreshDashboard();
 });
 
 screen.key(["v"], () => {
@@ -796,7 +955,7 @@ screen.key(["end"], () => {
 
 screen.key(["down", "j"], () => {
   if (actionsViewOpen) {
-    focusManualAction(actionsFocusIndex + 1);
+    focusManualAction(actionsFocusIndex + ACTION_BUTTON_COLUMNS);
     return;
   }
   if (reportViewerOpen) {
@@ -812,7 +971,7 @@ screen.key(["down", "j"], () => {
 
 screen.key(["up", "k"], () => {
   if (actionsViewOpen) {
-    focusManualAction(actionsFocusIndex - 1);
+    focusManualAction(actionsFocusIndex - ACTION_BUTTON_COLUMNS);
     return;
   }
   if (reportViewerOpen) {
@@ -824,6 +983,20 @@ screen.key(["up", "k"], () => {
   selectedIndex = Math.max(0, selectedIndex - 1);
   resetDetailScroll();
   render();
+});
+
+screen.key(["left", "h"], () => {
+  if (!actionsViewOpen) {
+    return;
+  }
+  focusManualAction(actionsFocusIndex - 1);
+});
+
+screen.key(["right"], () => {
+  if (!actionsViewOpen) {
+    return;
+  }
+  focusManualAction(actionsFocusIndex + 1);
 });
 
 screen.key(["x"], () => {
@@ -844,7 +1017,7 @@ screen.key(["x"], () => {
   });
 });
 
-screen.key(["a"], () => {
+screen.key(["s"], () => {
   if (actionsViewOpen) {
     return;
   }
@@ -858,6 +1031,20 @@ screen.key(["a"], () => {
       return;
     }
     setStatusMessage(`Cannot shortlist from ${record.job.status}`);
+    render();
+  });
+});
+
+screen.key(["a", "A"], () => {
+  if (actionsViewOpen) {
+    return;
+  }
+  withSelectedJob((jobId) => {
+    const result = markJobAsApplied(jobId);
+    setStatusMessage(result.message);
+    if (result.ok) {
+      resetDetailScroll();
+    }
     render();
   });
 });
@@ -966,14 +1153,14 @@ actionsButtonsPane.on("wheelup", () => {
   if (!actionsViewOpen) {
     return;
   }
-  focusManualAction(actionsFocusIndex - 1);
+  focusManualAction(actionsFocusIndex - ACTION_BUTTON_COLUMNS);
 });
 
 actionsButtonsPane.on("wheeldown", () => {
   if (!actionsViewOpen) {
     return;
   }
-  focusManualAction(actionsFocusIndex + 1);
+  focusManualAction(actionsFocusIndex + ACTION_BUTTON_COLUMNS);
 });
 
 actionsOutput.on("wheelup", () => {

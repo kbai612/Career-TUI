@@ -18,7 +18,7 @@ describe("buildDashboardView", () => {
           postedAt,
           rawJson: "{}",
           normalizedJson: "{}",
-          status: "rejected",
+          status: "evaluated",
           visitCount: 1,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -237,6 +237,147 @@ describe("buildDashboardView", () => {
     expect(view.tableRows).toHaveLength(1);
     expect(view.tableRows[0][2]).toBe("Shortlisted Co");
     expect(view.visibleJobIds).toEqual([1]);
+  });
+
+  it("hides transitioned jobs from all and keeps them in status tabs", () => {
+    const now = new Date().toISOString();
+    const baseRecord = {
+      resume: null,
+      application: null,
+      research: null,
+      contact: null
+    };
+    const records = [
+      {
+        ...baseRecord,
+        job: {
+          id: 1,
+          fingerprint: "rejected-1",
+          portal: "greenhouse",
+          sourceUrl: "https://example.com",
+          applyUrl: "https://example.com/job-1",
+          company: "Rejected Co",
+          title: "Data Engineer",
+          location: "Toronto",
+          rawJson: "{}",
+          normalizedJson: "{}",
+          status: "rejected" as const,
+          visitCount: 0,
+          createdAt: now,
+          updatedAt: now
+        },
+        evaluation: { totalScore: 4.9, grade: "A" } as any
+      },
+      {
+        ...baseRecord,
+        job: {
+          id: 2,
+          fingerprint: "shortlist-1",
+          portal: "greenhouse",
+          sourceUrl: "https://example.com",
+          applyUrl: "https://example.com/job-2",
+          company: "Shortlist Co",
+          title: "Senior Data Analyst",
+          location: "Toronto",
+          rawJson: "{}",
+          normalizedJson: "{}",
+          status: "shortlisted" as const,
+          visitCount: 0,
+          createdAt: now,
+          updatedAt: now
+        },
+        evaluation: { totalScore: 4.7, grade: "A" } as any
+      },
+      {
+        ...baseRecord,
+        job: {
+          id: 3,
+          fingerprint: "applied-1",
+          portal: "greenhouse",
+          sourceUrl: "https://example.com",
+          applyUrl: "https://example.com/job-3",
+          company: "Applied Co",
+          title: "Data Scientist",
+          location: "Toronto",
+          rawJson: "{}",
+          normalizedJson: "{}",
+          status: "submitted" as const,
+          visitCount: 0,
+          createdAt: now,
+          updatedAt: now
+        },
+        evaluation: { totalScore: 4.5, grade: "A" } as any
+      },
+      {
+        ...baseRecord,
+        job: {
+          id: 4,
+          fingerprint: "interview-1",
+          portal: "greenhouse",
+          sourceUrl: "https://example.com",
+          applyUrl: "https://example.com/job-4",
+          company: "Interview Co",
+          title: "ML Engineer",
+          location: "Toronto",
+          rawJson: "{}",
+          normalizedJson: "{}",
+          status: "blocked" as const,
+          visitCount: 0,
+          createdAt: now,
+          updatedAt: now
+        },
+        evaluation: { totalScore: 4.6, grade: "A" } as any
+      },
+      {
+        ...baseRecord,
+        job: {
+          id: 5,
+          fingerprint: "evaluated-1",
+          portal: "greenhouse",
+          sourceUrl: "https://example.com",
+          applyUrl: "https://example.com/job-5",
+          company: "Evaluated Co",
+          title: "Analytics Engineer",
+          location: "Toronto",
+          rawJson: "{}",
+          normalizedJson: "{}",
+          status: "evaluated" as const,
+          visitCount: 0,
+          createdAt: now,
+          updatedAt: now
+        },
+        evaluation: { totalScore: 4.4, grade: "B" } as any
+      }
+    ];
+
+    const allView = buildDashboardView(records, 0, "all");
+    expect(allView.visibleJobIds).toEqual([5]);
+    expect(allView.tableRows).toHaveLength(1);
+    expect(allView.tableRows[0][2]).toBe("Evaluated Co");
+    expect(allView.tabs.find((tab) => tab.key === "all")?.count).toBe(1);
+    expect(allView.tabs.find((tab) => tab.key === "no_apply")?.count).toBe(1);
+
+    const shortlistedView = buildDashboardView(records, 0, "shortlisted");
+    expect(shortlistedView.visibleJobIds).toEqual([2]);
+    expect(shortlistedView.tableRows[0][2]).toBe("Shortlist Co");
+
+    const appliedView = buildDashboardView(records, 0, "applied");
+    expect(appliedView.visibleJobIds).toEqual([3]);
+    expect(appliedView.tableRows[0][2]).toBe("Applied Co");
+
+    const interviewView = buildDashboardView(records, 0, "interview");
+    expect(interviewView.visibleJobIds).toEqual([4]);
+    expect(interviewView.tableRows[0][2]).toBe("Interview Co");
+
+    const topView = buildDashboardView(records, 0, "top");
+    expect(topView.visibleJobIds).toEqual([2, 3, 4, 5]);
+    expect(topView.tableRows).toHaveLength(4);
+    expect(topView.tableRows[0][2]).toBe("Shortlist Co");
+
+    const noApplyView = buildDashboardView(records, 0, "no_apply");
+    expect(noApplyView.visibleJobIds).toEqual([1]);
+    expect(noApplyView.tableRows).toHaveLength(1);
+    expect(noApplyView.tableRows[0][2]).toBe("Rejected Co");
   });
 });
 

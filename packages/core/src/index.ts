@@ -3,6 +3,7 @@ export * from "./config";
 export * from "./db";
 export * from "./dedup";
 export * from "./discovery";
+export * from "./env";
 export * from "./llm";
 export * from "./pipeline";
 export * from "./prompts";

@@ -1,7 +1,7 @@
 ﻿import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApplicationDraft, ensureReviewRequired } from "../src/application";
 import { ashbyAdapter, genericCareersAdapter, greenhouseAdapter, leverAdapter, levelsAdapter, linkedinAdapter, workdayAdapter } from "../src/adapters";
 import { loadArchetypeConfig, loadProfilePack, loadRegionConfig, loadScoringConfig } from "../src/config";
@@ -75,7 +75,8 @@ describe("scoring and state", () => {
   it("guards state transitions", () => {
     expect(canTransition("normalized", "evaluated")).toBe(true);
     expect(canTransition("evaluated", "resume_ready")).toBe(true);
-    expect(() => assertTransition("discovered", "submitted")).toThrow(/Invalid state transition/);
+    expect(canTransition("discovered", "submitted")).toBe(true);
+    expect(() => assertTransition("discovered", "submitted")).not.toThrow();
   });
 });
 
@@ -102,6 +103,31 @@ describe("schemas, adapters, resume, and derived artifacts", () => {
     const greenhouseListings = greenhouseAdapter.discoverListings(readFixture("greenhouse.html"), "https://boards.greenhouse.io/example");
     const leverListings = leverAdapter.discoverListings(readFixture("lever.html"), "https://jobs.lever.co/example");
     const workdayListings = workdayAdapter.discoverListings(readFixture("workday.html"), "https://company.workdayjobs.com/example");
+    const greenhouseApiListings = greenhouseAdapter.discoverListings(JSON.stringify({
+      jobs: [
+        {
+          id: 1001,
+          title: "Senior Data Analyst",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/1001",
+          updated_at: "2026-03-20T03:00:00.000Z",
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>$120,000 - $145,000 CAD</p>"
+        }
+      ]
+    }), "https://boards.greenhouse.io/embed/job_board?for=example");
+    const leverApiListings = leverAdapter.discoverListings(JSON.stringify([
+      {
+        id: "lev-1002",
+        text: "Analytics Engineer",
+        hostedUrl: "https://jobs.lever.co/example/lev-1002",
+        createdAt: 1773982800000,
+        descriptionPlain: "Build dashboards and experimentation workflows. Compensation $130,000 - $160,000.",
+        categories: {
+          location: "Toronto, Ontario, Canada",
+          commitment: "Full-time"
+        }
+      }
+    ]), "https://jobs.lever.co/example");
 
     expect(greenhouseListings.length).toBe(1);
     expect(greenhouseListings[0]?.compensationText).toBeUndefined();
@@ -111,15 +137,20 @@ describe("schemas, adapters, resume, and derived artifacts", () => {
     expect(workdayListings.length).toBe(1);
     expect(workdayListings[0]?.compensationText).toBeUndefined();
     expect(genericCareersAdapter.discoverListings(readFixture("generic.html"), "https://company.com/careers")[0]?.salaryMin).toBe(200000);
+    expect(greenhouseApiListings[0]?.postedAt).toBe("2026-03-20T03:00:00.000Z");
+    expect(greenhouseApiListings[0]?.salaryMin).toBe(120000);
+    expect(leverApiListings[0]?.postedAt).toBe("2026-03-20T05:00:00.000Z");
+    expect(leverApiListings[0]?.employmentType).toBe("Full-time");
   });
 
   it("parses linkedin and levels discovery pages and preserves canonical URLs", () => {
     const linkedinHtml = `
       <div class="base-search-card">
-        <a class="base-card__full-link" href="/jobs/view/123?trk=public_jobs_jobs-search-bar_search-submit&refId=abc">View</a>
+        <a class="base-card__full-link" href="https://jobs.northwind.com/apply/123?utm_source=linkedin&ref=abc">View</a>
         <h3 class="base-search-card__title">Senior Data Analyst</h3>
         <h4 class="base-search-card__subtitle">Northwind Analytics</h4>
         <span class="job-search-card__location">Toronto, Ontario, Canada</span>
+        <time datetime="2026-03-20T11:00:00.000Z">1 hour ago</time>
       </div>
     `;
     const levelsNextData = JSON.stringify({
@@ -153,10 +184,52 @@ describe("schemas, adapters, resume, and derived artifacts", () => {
     const linkedinListing = linkedinAdapter.discoverListings(linkedinHtml, "https://www.linkedin.com/jobs/search/?keywords=Data%20Analyst")[0];
     const levelsListing = levelsAdapter.discoverListings(levelsHtml, "https://www.levels.fyi/jobs/?location=Toronto")[0];
 
-    expect(linkedinListing.applyUrl).toBe("https://www.linkedin.com/jobs/view/123");
+    expect(linkedinListing.applyUrl).toBe("https://jobs.northwind.com/apply/123");
+    expect(linkedinListing.postedAt).toBe("2026-03-20T11:00:00.000Z");
     expect(levelsListing.applyUrl).toBe("https://boards.greenhouse.io/acme/jobs/456");
     expect(levelsListing.salaryMin).toBe(180000);
     expect(levelsListing.company).toBe("Acme AI");
+  });
+
+  it("prefers linkedin relative age text when datetime is date-only", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-20T12:00:00.000Z"));
+    try {
+      const linkedinHtml = `
+        <div class="base-search-card">
+          <a class="base-card__full-link" href="https://jobs.northwind.com/apply/123?utm_source=linkedin&ref=abc">View</a>
+          <h3 class="base-search-card__title">Senior Data Analyst</h3>
+          <h4 class="base-search-card__subtitle">Northwind Analytics</h4>
+          <span class="job-search-card__location">Toronto, Ontario, Canada</span>
+          <time datetime="2026-03-19">16 hours ago</time>
+        </div>
+      `;
+      const listing = linkedinAdapter.discoverListings(linkedinHtml, "https://www.linkedin.com/jobs/search/?keywords=Data%20Analyst")[0];
+      expect(listing?.postedAt).toBe("2026-03-19T20:00:00.000Z");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("parses workopolis cards with actual company names", () => {
+    const workopolisHtml = `
+      <ul>
+        <li>
+          <div data-testid="searchSerpJob">
+            <a class="chakra-button" href="/jobsearch/viewjob/abc123">Open</a>
+            <h2 data-testid="searchSerpJobTitle">Senior Data Analyst</h2>
+            <span data-testid="companyName">Acme Analytics</span>
+            <span data-testid="searchSerpJobLocation">Toronto, ON</span>
+            <span data-testid="salaryChip-0">$120,000 a year</span>
+          </div>
+        </li>
+      </ul>
+    `;
+    const listing = genericCareersAdapter.discoverListings(workopolisHtml, "https://www.workopolis.com/jobsearch/find-jobs?q=data")[0];
+    expect(listing).toBeDefined();
+    expect(listing?.company).toBe("Acme Analytics");
+    expect(listing?.applyUrl).toBe("https://www.workopolis.com/jobsearch/viewjob/abc123");
+    expect(listing?.location).toBe("Toronto, ON");
   });
 
   it("parses levels location pages with inline Toronto job cards", () => {
@@ -187,6 +260,44 @@ describe("schemas, adapters, resume, and derived artifacts", () => {
     expect(listings[0]?.salaryMin).toBe(95000);
     expect(listings[1]?.title).toContain("Business Analyst");
     expect(listings[1]?.applyUrl).toBe("https://www.levels.fyi/jobs?jobId=133532090648928966");
+  });
+
+  it("keeps linkedin-hosted apply URLs when external apply links are unavailable", () => {
+    const linkedinHtml = `
+      <div class="base-search-card">
+        <a class="base-card__full-link" href="https://www.linkedin.com/jobs/view/98765?trk=guest_search">View</a>
+        <h3 class="base-search-card__title">Data Analyst</h3>
+        <h4 class="base-search-card__subtitle">Northwind Analytics</h4>
+        <span class="job-search-card__location">Toronto, Ontario, Canada</span>
+      </div>
+    `;
+    const listing = linkedinAdapter.discoverListings(linkedinHtml, "https://www.linkedin.com/jobs/search/?keywords=Data%20Analyst")[0];
+    expect(listing).toBeDefined();
+    expect(listing?.applyUrl).toBe("https://www.linkedin.com/jobs/view/98765");
+    expect(listing?.metadata?.linkedinHostedApply).toBe(true);
+  });
+
+  it("keeps both external and linkedin-hosted apply URLs from LinkedIn discovery pages", () => {
+    const linkedinHtml = `
+      <div class="base-search-card">
+        <a class="base-card__full-link" href="https://careers.northwind.com/jobs/123?utm_source=linkedin">View</a>
+        <h3 class="base-search-card__title">Senior Data Analyst</h3>
+        <h4 class="base-search-card__subtitle">Northwind Analytics</h4>
+        <span class="job-search-card__location">Toronto, Ontario, Canada</span>
+      </div>
+      <div class="base-search-card">
+        <a class="base-card__full-link" href="https://www.linkedin.com/jobs/view/98765?trk=guest_search">View</a>
+        <h3 class="base-search-card__title">Data Analyst</h3>
+        <h4 class="base-search-card__subtitle">Northwind Analytics</h4>
+        <span class="job-search-card__location">Toronto, Ontario, Canada</span>
+      </div>
+    `;
+    const listings = linkedinAdapter.discoverListings(linkedinHtml, "https://www.linkedin.com/jobs/search/?keywords=Data%20Analyst");
+    expect(listings).toHaveLength(2);
+    expect(listings[0]?.applyUrl).toBe("https://careers.northwind.com/jobs/123");
+    expect(listings[0]?.metadata?.linkedinHostedApply).toBeUndefined();
+    expect(listings[1]?.applyUrl).toBe("https://www.linkedin.com/jobs/view/98765");
+    expect(listings[1]?.metadata?.linkedinHostedApply).toBe(true);
   });
 
   it("builds ATS-safe resume variants with cover letters", () => {
@@ -333,7 +444,7 @@ describe("pipeline", () => {
     }
   }, 15000);
 
-  it("caches job listings between reads and invalidates after writes", () => {
+  it("caches job listings between reads and updates cache after status writes", () => {
     pipeline.seedDemoJobs([
       {
         portal: "greenhouse",
@@ -354,8 +465,62 @@ describe("pipeline", () => {
     pipeline.repo.updateJobStatus(firstRead[0]!.job.id, "evaluated");
 
     const thirdRead = pipeline.repo.listJobs();
-    expect(thirdRead).not.toBe(firstRead);
+    expect(thirdRead).toBe(firstRead);
     expect(thirdRead[0]!.job.status).toBe("evaluated");
+  });
+
+  it("clears all listings and listing artifacts", async () => {
+    const [jobId] = pipeline.seedDemoJobs([
+      {
+        portal: "greenhouse",
+        sourceUrl: "https://boards.greenhouse.io/example",
+        applyUrl: "https://boards.greenhouse.io/example/jobs/1000",
+        company: "Cleanup Inc",
+        title: "Data Analyst",
+        location: "Toronto, Ontario, Canada",
+        postedAt: new Date().toISOString(),
+        description: "Listing cleanup test job."
+      }
+    ]);
+    await pipeline.evaluateJob(jobId);
+
+    const before = pipeline.repo.listJobs();
+    expect(before).toHaveLength(1);
+    expect(before[0]?.evaluation).not.toBeNull();
+
+    const deleted = pipeline.repo.clearListings();
+
+    expect(deleted.jobs).toBeGreaterThanOrEqual(1);
+    expect(deleted.evaluations).toBeGreaterThanOrEqual(1);
+    expect(pipeline.repo.listJobs()).toHaveLength(0);
+  });
+
+  it("refreshes cached listings after out-of-band database updates", () => {
+    pipeline.seedDemoJobs([
+      {
+        portal: "greenhouse",
+        sourceUrl: "https://boards.greenhouse.io/example",
+        applyUrl: "https://boards.greenhouse.io/example/jobs/1000",
+        company: "External Write Inc",
+        title: "Data Analyst",
+        location: "Toronto, Ontario, Canada",
+        postedAt: new Date().toISOString(),
+        description: "Cache refresh behavior test listing."
+      }
+    ]);
+
+    const cachedRead = pipeline.repo.listJobs();
+    const jobId = cachedRead[0]!.job.id;
+    pipeline.repo.sqlite.prepare("update jobs set title = ?, updated_at = ? where id = ?")
+      .run("Data Analyst Updated Externally", new Date().toISOString(), jobId);
+
+    const staleRead = pipeline.repo.listJobs();
+    expect(staleRead).toBe(cachedRead);
+    expect(staleRead[0]!.job.title).toBe("Data Analyst");
+
+    const refreshedRead = pipeline.repo.refreshJobs();
+    expect(refreshedRead).not.toBe(cachedRead);
+    expect(refreshedRead[0]!.job.title).toBe("Data Analyst Updated Externally");
   });
 
   it("drops polluted location text from stored compensation fields", () => {
@@ -383,6 +548,7 @@ describe("pipeline", () => {
     const ids = pipeline.seedTorontoDiscoverySources();
     const sources = pipeline.listSources({ activeOnly: true, regionId: "toronto-canada" });
     const sourceNames = sources.map((source) => source.name);
+    const linkedinSources = sources.filter((source) => source.kind === "linkedin");
 
     expect(ids).toHaveLength(11);
     expect(sourceNames).toEqual(expect.arrayContaining([
@@ -398,17 +564,38 @@ describe("pipeline", () => {
       "Indeed Canada Toronto Data Jobs",
       "SimplyHired Canada Toronto Data Jobs"
     ]));
+    for (const source of linkedinSources) {
+      expect(new URL(source.sourceUrl).searchParams.get("f_TPR")).toBe("r86400");
+    }
   });
 
   it("deactivates legacy Toronto default sources on reseed", () => {
     pipeline.registerSource({
-      name: "Stripe Greenhouse",
+      name: "Greenhouse Stripe Data Jobs",
       sourceUrl: "https://boards.greenhouse.io/embed/job_board?for=stripe",
       kind: "greenhouse",
       regionId: "toronto-canada",
       active: true,
       usePersistentBrowser: false,
-      metadata: { role: "data", discoveryOnly: false }
+      metadata: { role: "data", discoveryOnly: true }
+    });
+    pipeline.registerSource({
+      name: "Lever ShyftLabs Toronto Data Jobs",
+      sourceUrl: "https://jobs.lever.co/shyftlabs?location=Toronto%2C+Ontario",
+      kind: "lever",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { role: "data", discoveryOnly: true }
+    });
+    pipeline.registerSource({
+      name: "Lever Caseware Toronto Data Jobs",
+      sourceUrl: "https://jobs.lever.co/caseware",
+      kind: "lever",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { role: "data", discoveryOnly: true }
     });
     pipeline.registerSource({
       name: "Levels Toronto Data Jobs (Legacy URL)",
@@ -432,10 +619,14 @@ describe("pipeline", () => {
     pipeline.seedTorontoDiscoverySources();
 
     const allSources = pipeline.listSources({ activeOnly: false, regionId: "toronto-canada" });
-    const stripeSource = allSources.find((source) => source.sourceUrl === "https://boards.greenhouse.io/embed/job_board?for=stripe");
+    const legacyGreenhouseSource = allSources.find((source) => source.sourceUrl === "https://boards.greenhouse.io/embed/job_board?for=stripe");
+    const legacyLeverShyftlabsSource = allSources.find((source) => source.sourceUrl === "https://jobs.lever.co/shyftlabs?location=Toronto%2C+Ontario");
+    const legacyLeverCasewareSource = allSources.find((source) => source.sourceUrl === "https://jobs.lever.co/caseware");
     const legacyLevelsSource = allSources.find((source) => source.sourceUrl === "https://www.levels.fyi/jobs/?location=Toronto%2C%20Ontario%2C%20Canada&searchText=data");
     const legacyLevelsLocationSource = allSources.find((source) => source.sourceUrl === "https://www.levels.fyi/jobs/location/greater-toronto-area");
-    expect(stripeSource?.active).toBe(false);
+    expect(legacyGreenhouseSource?.active).toBe(false);
+    expect(legacyLeverShyftlabsSource?.active).toBe(false);
+    expect(legacyLeverCasewareSource?.active).toBe(false);
     expect(legacyLevelsSource?.active).toBe(false);
     expect(legacyLevelsLocationSource?.active).toBe(false);
   });
@@ -462,7 +653,7 @@ describe("pipeline", () => {
 
     const linkedinHtml = `
       <div class="base-search-card">
-        <a class="base-card__full-link" href="/jobs/view/123?trk=public_jobs_jobs-search-bar_search-submit&refId=abc">View</a>
+        <a class="base-card__full-link" href="https://careers.northwind.com/jobs/123?utm_source=linkedin&ref=abc">View</a>
         <h3 class="base-search-card__title">Senior Data Analyst</h3>
         <h4 class="base-search-card__subtitle">Northwind Analytics</h4>
         <span class="job-search-card__location">Toronto, Ontario, Canada</span>
@@ -487,7 +678,200 @@ describe("pipeline", () => {
     expect(linkedinRun.status).toBe("success");
     expect(levelsRun.status).toBe("success");
     expect(sources).toHaveLength(2);
-    expect(applyUrls).toContain("https://www.linkedin.com/jobs/view/123");
+    expect(applyUrls).toContain("https://careers.northwind.com/jobs/123");
     expect(applyUrls).toContain("https://boards.greenhouse.io/acme/jobs/456");
+  });
+
+  it("applies default role and 24-hour filters for greenhouse discovery sources", async () => {
+    const greenhouseSourceId = pipeline.registerSource({
+      name: "Greenhouse Data Roles",
+      sourceUrl: "https://boards.greenhouse.io/embed/job_board?for=example",
+      kind: "greenhouse",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { discoveryOnly: true }
+    });
+    const recentPostedAt = new Date(Date.now() - (2 * 60 * 60 * 1000)).toISOString();
+    const stalePostedAt = new Date(Date.now() - (48 * 60 * 60 * 1000)).toISOString();
+    const greenhouseApiPayload = JSON.stringify({
+      jobs: [
+        {
+          id: 1,
+          title: "Senior Data Analyst",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/1",
+          updated_at: recentPostedAt,
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>SQL experimentation</p>"
+        },
+        {
+          id: 2,
+          title: "Frontend Engineer",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/2",
+          updated_at: recentPostedAt,
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>React frontend role</p>"
+        },
+        {
+          id: 3,
+          title: "Data Scientist",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/3",
+          updated_at: stalePostedAt,
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>Modeling role</p>"
+        }
+      ]
+    });
+
+    const run = await pipeline.syncRegisteredSource(greenhouseSourceId, greenhouseApiPayload);
+    const jobs = pipeline.repo.listJobs();
+
+    expect(run.status).toBe("success");
+    expect(run.processed).toBe(1);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.job.title).toBe("Senior Data Analyst");
+  });
+
+  it("applies default 24-hour filter for linkedin discovery sources when postedAt is available", async () => {
+    const linkedinSourceId = pipeline.registerSource({
+      name: "LinkedIn Toronto Data Analyst",
+      sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Data%20Analyst&location=Toronto%2C%20Ontario%2C%20Canada",
+      kind: "linkedin",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { discoveryOnly: true }
+    });
+    const recentPostedAt = new Date(Date.now() - (2 * 60 * 60 * 1000)).toISOString();
+    const stalePostedAt = new Date(Date.now() - (48 * 60 * 60 * 1000)).toISOString();
+    const linkedinHtml = `
+      <div class="base-search-card">
+        <a class="base-card__full-link" href="https://www.linkedin.com/jobs/view/11111?trk=guest_search">View</a>
+        <h3 class="base-search-card__title">Senior Data Analyst</h3>
+        <h4 class="base-search-card__subtitle">Northwind Analytics</h4>
+        <span class="job-search-card__location">Toronto, Ontario, Canada</span>
+        <time datetime="${recentPostedAt}">2 hours ago</time>
+      </div>
+      <div class="base-search-card">
+        <a class="base-card__full-link" href="https://www.linkedin.com/jobs/view/22222?trk=guest_search">View</a>
+        <h3 class="base-search-card__title">Data Scientist</h3>
+        <h4 class="base-search-card__subtitle">Contoso AI</h4>
+        <span class="job-search-card__location">Toronto, Ontario, Canada</span>
+        <time datetime="${stalePostedAt}">2 days ago</time>
+      </div>
+    `;
+
+    const run = await pipeline.syncRegisteredSource(linkedinSourceId, linkedinHtml);
+    const jobs = pipeline.repo.listJobs();
+
+    expect(run.status).toBe("success");
+    expect(run.processed).toBe(1);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.job.title).toBe("Senior Data Analyst");
+  });
+
+  it("keeps linkedin-hosted apply URLs for LinkedIn discovery sources", async () => {
+    const linkedinSourceId = pipeline.registerSource({
+      name: "LinkedIn Toronto Data Analyst",
+      sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Data%20Analyst&location=Toronto%2C%20Ontario%2C%20Canada",
+      kind: "linkedin",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { discoveryOnly: true }
+    });
+    const linkedinHtml = `
+      <div class="base-search-card">
+        <a class="base-card__full-link" href="https://www.linkedin.com/jobs/view/98765?trk=guest_search">View</a>
+        <h3 class="base-search-card__title">Data Analyst</h3>
+        <h4 class="base-search-card__subtitle">Northwind Analytics</h4>
+        <span class="job-search-card__location">Toronto, Ontario, Canada</span>
+      </div>
+    `;
+
+    const run = await pipeline.syncRegisteredSource(linkedinSourceId, linkedinHtml);
+
+    expect(run.status).toBe("success");
+    expect(run.processed).toBe(1);
+    expect(run.created).toBe(1);
+    const jobs = pipeline.repo.listJobs();
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.job.applyUrl).toBe("https://www.linkedin.com/jobs/view/98765");
+  });
+
+  it("falls back to source URL location when extracted listings have unknown location", async () => {
+    const sourceId = pipeline.registerSource({
+      name: "Fallback location source",
+      sourceUrl: "https://example.com/jobs?q=data+analyst&l=Toronto%2C+ON",
+      kind: "generic",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { discoveryOnly: true, titleKeywords: ["data analyst"] }
+    });
+    const html = `
+      <article>
+        <a href="https://example.com/jobs/123">Apply</a>
+        <h3>Data Analyst</h3>
+        <p>SQL and dashboard reporting</p>
+      </article>
+    `;
+    const run = await pipeline.syncRegisteredSource(sourceId, html);
+    const job = pipeline.repo.listJobs()[0];
+    expect(run.status).toBe("success");
+    expect(run.processed).toBe(1);
+    expect(job?.job.location).toBe("Toronto, ON");
+  });
+
+  it("keeps discovery listings when strict keywords remove every extracted match", async () => {
+    const sourceId = pipeline.registerSource({
+      name: "Strict keyword source",
+      sourceUrl: "https://example.com/jobs?location=Toronto%2C+ON",
+      kind: "levels",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { discoveryOnly: true, titleKeywords: ["data analyst"] }
+    });
+    const html = `
+      <article>
+        <a href="https://example.com/jobs/999">Apply</a>
+        <h3>Senior Analytics Engineer</h3>
+        <div class="location">Toronto, ON</div>
+      </article>
+    `;
+    const run = await pipeline.syncRegisteredSource(sourceId, html);
+    expect(run.status).toBe("success");
+    expect(run.processed).toBe(1);
+    expect(run.errors).toEqual([]);
+  });
+
+  it("does not trim Levels sources by title keywords", async () => {
+    const sourceId = pipeline.registerSource({
+      name: "Levels keyword bypass source",
+      sourceUrl: "https://example.com/jobs?location=Toronto%2C+ON",
+      kind: "levels",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { discoveryOnly: true, titleKeywords: ["data analyst"] }
+    });
+    const html = `
+      <article>
+        <a href="https://example.com/jobs/111">Apply</a>
+        <h3>Data Analyst</h3>
+        <div class="location">Toronto, ON</div>
+      </article>
+      <article>
+        <a href="https://example.com/jobs/222">Apply</a>
+        <h3>Platform Engineer</h3>
+        <div class="location">Toronto, ON</div>
+      </article>
+    `;
+    const run = await pipeline.syncRegisteredSource(sourceId, html);
+    expect(run.status).toBe("success");
+    expect(run.processed).toBe(2);
+    const jobs = pipeline.repo.listJobs();
+    expect(jobs).toHaveLength(2);
   });
 });

@@ -436,6 +436,11 @@ export class CareerOpsRepository {
     return this.jobCache;
   }
 
+  refreshJobs(): JobRecordWithArtifacts[] {
+    this.invalidateJobCache();
+    return this.listJobs();
+  }
+
   getJobRecord(jobId: number): JobRecordWithArtifacts {
     const match = this.listJobs().find((record) => record.job.id === jobId);
     if (match == null) {
@@ -449,9 +454,19 @@ export class CareerOpsRepository {
   }
 
   updateJobStatus(jobId: number, nextStatus: ApplicationState): void {
+    const now = new Date().toISOString();
     const current = this.getJobRecord(jobId).job.status;
     assertTransition(current, nextStatus);
-    this.sqlite.prepare("update jobs set status = ?, updated_at = ? where id = ?").run(nextStatus, new Date().toISOString(), jobId);
+    this.sqlite.prepare("update jobs set status = ?, updated_at = ? where id = ?").run(nextStatus, now, jobId);
+
+    if (this.jobCache != null) {
+      const cached = this.jobCache.find((record) => record.job.id === jobId);
+      if (cached != null) {
+        cached.job.status = nextStatus;
+        cached.job.updatedAt = now;
+        return;
+      }
+    }
     this.invalidateJobCache();
   }
 
@@ -538,6 +553,35 @@ export class CareerOpsRepository {
   getTrainingAssessment(sourceKey: string): TrainingAssessment | null {
     const row = this.sqlite.prepare("select assessment_json from training_assessments where source_key = ?").get(sourceKey) as { assessment_json?: string } | undefined;
     return row?.assessment_json ? JSON.parse(row.assessment_json) as TrainingAssessment : null;
+  }
+
+  clearListings(): {
+    jobs: number;
+    evaluations: number;
+    resumes: number;
+    applications: number;
+    researchReports: number;
+    contactDrafts: number;
+  } {
+    const runCleanup = this.sqlite.transaction(() => {
+      const contactDrafts = this.sqlite.prepare("delete from contact_drafts").run().changes;
+      const researchReports = this.sqlite.prepare("delete from research_reports").run().changes;
+      const applications = this.sqlite.prepare("delete from applications").run().changes;
+      const resumes = this.sqlite.prepare("delete from resumes").run().changes;
+      const evaluations = this.sqlite.prepare("delete from evaluations").run().changes;
+      const jobs = this.sqlite.prepare("delete from jobs").run().changes;
+      return {
+        jobs,
+        evaluations,
+        resumes,
+        applications,
+        researchReports,
+        contactDrafts
+      };
+    });
+    const result = runCleanup();
+    this.invalidateJobCache();
+    return result;
   }
 
   saveRunSummary(summary: RunSummary): void {

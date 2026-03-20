@@ -184,7 +184,8 @@ node apps/worker/dist/apps/worker/src/index.js register-source https://jobs.leve
 Important behavior:
 
 - LinkedIn and Levels are discovery sources
-- when an external ATS/company apply URL is visible, Career Ops stores that canonical URL for dedup
+- LinkedIn sync resolves job-view links to external ATS/company apply URLs when available
+- LinkedIn listings that remain LinkedIn-hosted apply URLs are kept during discovery sync
 - Toronto filtering is applied before inserting jobs into the local DB
 - LinkedIn source sync now uses LinkedIn's public guest-search HTML, so it should not require an interactive login during discovery
 - persistent-browser sources are still serialized automatically because they share one local Chrome profile
@@ -351,6 +352,7 @@ This command:
 - targets jobs in `shortlisted`, `resume_ready`, `ready_to_apply`, and `in_review`
 - ensures resume + application draft exist before filling
 - opens each apply URL with your persistent browser profile
+- excludes LinkedIn-hosted apply URLs from autoapply (use external ATS/company apply URLs or manual apply)
 - autofills known answers and uploads your resume
 - marks jobs `in_review` after prefill, and `submitted` only when submit confirmation is detected
 

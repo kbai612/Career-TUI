@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeLevelsSourceUrl } from "../src/source-url";
+import { normalizeLevelsSourceUrl, normalizeLinkedInSourceUrl } from "../src/source-url";
 
 describe("worker", () => {
   it("normalizes legacy Levels Toronto search URLs to the location discovery page", () => {
@@ -20,5 +20,22 @@ describe("worker", () => {
   it("keeps non-Levels URLs unchanged", () => {
     const sourceUrl = "https://ca.indeed.com/jobs?q=data+analyst&l=Toronto%2C+ON";
     expect(normalizeLevelsSourceUrl(sourceUrl)).toBe(sourceUrl);
+  });
+
+  it("enforces LinkedIn searches to last 24 hours", () => {
+    const sourceUrl = "https://www.linkedin.com/jobs/search/?keywords=Data%20Analyst&location=Toronto%2C%20Ontario%2C%20Canada";
+    const normalized = normalizeLinkedInSourceUrl(sourceUrl);
+    expect(new URL(normalized).searchParams.get("f_TPR")).toBe("r86400");
+  });
+
+  it("overrides existing LinkedIn recency filters to 24 hours", () => {
+    const sourceUrl = "https://www.linkedin.com/jobs/search/?keywords=Data%20Analyst&f_TPR=r604800";
+    const normalized = normalizeLinkedInSourceUrl(sourceUrl);
+    expect(new URL(normalized).searchParams.get("f_TPR")).toBe("r86400");
+  });
+
+  it("keeps non-LinkedIn URLs unchanged for LinkedIn normalization", () => {
+    const sourceUrl = "https://ca.indeed.com/jobs?q=data+analyst&l=Toronto%2C+ON";
+    expect(normalizeLinkedInSourceUrl(sourceUrl)).toBe(sourceUrl);
   });
 });
