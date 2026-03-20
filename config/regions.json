@@ -1,0 +1,32 @@
+{
+  "regions": [
+    {
+      "id": "toronto-canada",
+      "label": "Toronto, Canada",
+      "aliases": [
+        "toronto",
+        "toronto, on",
+        "toronto, ontario",
+        "greater toronto area",
+        "gta",
+        "mississauga",
+        "brampton",
+        "markham",
+        "vaughan",
+        "richmond hill",
+        "oakville",
+        "scarborough",
+        "north york",
+        "etobicoke",
+        "ontario, canada"
+      ],
+      "remoteAliases": [
+        "remote - canada",
+        "remote canada",
+        "canada remote",
+        "remote, canada",
+        "remote within canada"
+      ]
+    }
+  ]
+}

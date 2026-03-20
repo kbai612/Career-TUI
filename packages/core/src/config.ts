@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type { ArchetypeConfig, ProfilePack, ScoringConfig } from "./types";
+import type { ArchetypeConfig, ProfilePack, RegionConfig, ScoringConfig } from "./types";
 
 function readJsonFile<T>(filePath: string): T {
   return JSON.parse(readFileSync(filePath, "utf8")) as T;
@@ -22,6 +22,10 @@ export function loadProfilePack(rootDir: string): ProfilePack {
   const profile = readJsonFile<Omit<ProfilePack, "masterResume">>(resolveProjectPath(rootDir, "profile", "profile.json"));
   const masterResume = readFileSync(resolveProjectPath(rootDir, "profile", "master_resume.md"), "utf8");
   return { ...profile, masterResume };
+}
+
+export function loadRegionConfig(rootDir: string): RegionConfig {
+  return readJsonFile<RegionConfig>(resolveProjectPath(rootDir, "config", "regions.json"));
 }
 
 export function ensureDataPaths(rootDir: string): { dataDir: string; dbPath: string; browserProfileDir: string } {

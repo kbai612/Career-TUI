@@ -1,103 +1,119 @@
 {
   "archetypes": [
     {
-      "id": "ai-platform-llmops",
-      "label": "AI Platform / LLMOps Engineer",
+      "id": "data-analyst",
+      "label": "Data Analyst",
+      "seniority": ["analyst", "senior", "lead", "staff", "principal"],
       "keywords": [
-        "llm",
-        "llmops",
-        "rag",
-        "evaluation",
-        "model registry",
-        "vector db",
-        "inference",
-        "ml platform"
-      ],
-      "seniority": [
-        "senior",
-        "staff",
-        "principal"
+        "sql",
+        "tableau",
+        "power bi",
+        "dashboard",
+        "excel",
+        "stakeholder",
+        "reporting",
+        "kpi",
+        "business insights",
+        "ab testing",
+        "data visualization",
+        "data cleaning",
+        "data transformation",
+        "data integration",
+        "data modeling",
+        "data warehousing",
+        "data governance",
+        "data security",
+        "data privacy"
       ]
     },
     {
-      "id": "forward-deployed-ai",
-      "label": "Forward Deployed AI Engineer",
-      "keywords": [
-        "customer",
-        "implementation",
-        "solutions",
-        "deployment",
-        "agent",
-        "automation"
-      ],
-      "seniority": [
-        "senior",
-        "staff"
-      ]
-    },
-    {
-      "id": "agentic-software",
-      "label": "Agentic Software Engineer",
-      "keywords": [
-        "agent",
-        "workflow",
-        "automation",
-        "typescript",
-        "python",
-        "playwright"
-      ],
-      "seniority": [
-        "mid",
-        "senior"
-      ]
-    },
-    {
-      "id": "solutions-engineering",
-      "label": "Solutions Engineer",
-      "keywords": [
-        "solutions",
-        "pre-sales",
-        "customer",
-        "demo",
-        "integration"
-      ],
-      "seniority": [
-        "mid",
-        "senior",
-        "staff"
-      ]
-    },
-    {
-      "id": "product-ai",
-      "label": "Product AI Builder",
+      "id": "product-analyst",
+      "label": "Product Analyst",
+      "seniority": ["analyst", "senior", "lead", "staff", "principal"],
       "keywords": [
         "product",
-        "growth",
-        "experimentation",
-        "platform",
-        "ai first"
-      ],
-      "seniority": [
-        "mid",
-        "senior",
-        "principal"
+        "analytics",
+        "reporting",
+        "visualization",
+        "sql",
+        "python",
+        "tableau",
+        "power bi",
+        "dashboard",
+        "excel",
+        "stakeholder",
+        "reporting",
+        "kpi",
+        "business insights",
+        "ab testing",
+        "data visualization",
+        "data cleaning",
+        "data transformation",
+        "data integration",
+        "data modeling",
+        "data warehousing",
+        "data governance",
+        "data security",
+        "data privacy"
       ]
     },
     {
-      "id": "ml-infra",
-      "label": "ML Infrastructure Engineer",
+      "id": "business-intelligence-analyst",
+      "label": "Business Intelligence Analyst",
+      "seniority": ["analyst", "senior", "lead", "staff", "principal"],
       "keywords": [
-        "training",
-        "feature store",
-        "model serving",
-        "kubernetes",
-        "ci/cd",
-        "mlops"
-      ],
-      "seniority": [
-        "senior",
-        "staff",
-        "principal"
+        "business",
+        "intelligence",
+        "reporting",
+        "visualization",
+        "sql",
+        "python",
+        "tableau",
+        "power bi",
+        "dashboard",
+        "excel",
+        "stakeholder",
+        "reporting",
+        "kpi",
+        "business insights",
+        "ab testing",
+        "data visualization",
+        "data cleaning",
+        "data transformation",
+        "data integration",
+        "data modeling",
+        "data warehousing",
+        "data governance",
+        "data security",
+        "data privacy"
+      ]
+    },
+    {
+      "id": "data-scientist",
+      "label": "Data Scientist",
+      "seniority": ["scientist", "senior", "lead", "staff", "principal"],
+      "keywords": [
+        "python", 
+        "pandas",
+        "statistics",
+        "experimentation",
+        "forecasting",
+        "regression",
+        "classification",
+        "causal inference",
+        "feature engineering",
+        "modeling"
+      ]
+    },
+    {
+      "id": "data-engineer",
+      "label": "Data Engineer",
+      "seniority": ["engineer", "senior", "lead", "staff", "principal"],
+      "keywords": [
+        "data",
+        "engineering",
+        "database",
+        "data pipeline"
       ]
     }
   ]

@@ -1,4 +1,4 @@
-import type { ApplicationDraft, EvaluationReport, JobListing, ProfilePack } from "./types";
+﻿import type { ApplicationDraft, EvaluationReport, JobListing, ProfilePack } from "./types";
 
 export function buildApplicationDraft(jobId: number, job: JobListing, report: EvaluationReport, profile: ProfilePack): ApplicationDraft {
   return {
@@ -19,9 +19,10 @@ export function buildApplicationDraft(jobId: number, job: JobListing, report: Ev
       disability: profile.eeo.disability ?? "No"
     },
     roleSpecificAnswers: [
-      `I am a strong fit for ${job.title} because ${report.summary}`,
-      `My most relevant proof point is: ${profile.proofPoints[0]}`,
-      `I am especially interested in ${job.company} because the role aligns with ${report.archetypeLabel}.`
+      `I am a strong fit for ${job.title} because ${report.executiveSummary}`,
+      `My strongest proof point is ${report.cvMatches[0]?.proofPoint ?? profile.proofPoints[0]}.`,
+      `I am especially interested in ${job.company} because the role aligns with ${report.archetypeLabel} and scores ${report.totalScore.toFixed(1)}/5 (${report.grade}).`,
+      `The first risk I would address proactively is ${report.riskSignals[0] ?? "scope clarification during the interview process"}.`
     ],
     reviewRequired: true,
     status: "drafted",
@@ -34,3 +35,4 @@ export function ensureReviewRequired(draft: ApplicationDraft): void {
     throw new Error("Application draft must require manual review.");
   }
 }
+

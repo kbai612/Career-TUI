@@ -1,4 +1,4 @@
-export const SCORE_DIMENSIONS = [
+﻿export const SCORE_DIMENSIONS = [
   "roleFit",
   "skillsAlignment",
   "seniorityCalibration",
@@ -30,19 +30,37 @@ export const APPLICATION_STATES = [
 export type ApplicationState = (typeof APPLICATION_STATES)[number];
 
 export const MODE_NAMES = [
+  "auto-pipeline",
   "scanner-discovery",
   "job-normalizer",
   "dedup-resolver",
   "offer-evaluator",
+  "offer-report",
+  "offer-comparison",
   "resume-tailor",
   "pdf-renderer",
   "application-drafter",
-  "apply-runner"
+  "apply-runner",
+  "company-research",
+  "contact-drafter",
+  "training-evaluator"
 ] as const;
 
 export type ModeName = (typeof MODE_NAMES)[number];
 
 export type ActionRecommendation = "reject" | "review" | "apply";
+
+export const SOURCE_KINDS = [
+  "greenhouse",
+  "lever",
+  "ashby",
+  "workday",
+  "generic",
+  "linkedin",
+  "levels"
+] as const;
+
+export type SourceKind = (typeof SOURCE_KINDS)[number];
 
 export interface JobListing {
   id?: number;
@@ -64,6 +82,52 @@ export interface JobListing {
   metadata?: Record<string, unknown>;
 }
 
+export interface CareerSource {
+  id?: number;
+  name: string;
+  sourceUrl: string;
+  kind: SourceKind;
+  regionId: string;
+  active: boolean;
+  usePersistentBrowser: boolean;
+  metadata?: Record<string, unknown>;
+  lastSyncedAt?: string;
+  lastStatus?: "idle" | "success" | "error";
+}
+
+export interface StoredCareerSource extends CareerSource {
+  id: number;
+  metadataJson: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SourceSyncRun {
+  sourceId: number;
+  sourceName: string;
+  sourceUrl: string;
+  regionId: string;
+  startedAt: string;
+  completedAt: string;
+  processed: number;
+  created: number;
+  updated: number;
+  errors: string[];
+  status: "success" | "error";
+  jobIds: number[];
+}
+
+export interface RegionRule {
+  id: string;
+  label: string;
+  aliases: string[];
+  remoteAliases: string[];
+}
+
+export interface RegionConfig {
+  regions: RegionRule[];
+}
+
 export interface NormalizedJob extends JobListing {
   fingerprint: string;
   normalizedTitle: string;
@@ -80,17 +144,67 @@ export interface EvaluationDimensionScore {
 
 export type EvaluationScores = Record<ScoreDimension, EvaluationDimensionScore>;
 
+export interface CvMatchEntry {
+  requirement: string;
+  proofPoint: string;
+  strength: "Weak" | "Moderate" | "Strong" | "Very Strong";
+  notes: string;
+}
+
+export interface GapMitigation {
+  gap: string;
+  severity: "low" | "medium" | "high";
+  mitigation: string;
+}
+
+export interface LevelStrategyBlock {
+  targetLevel: string;
+  positioning: string;
+  rationale: string;
+  risks: string[];
+}
+
+export interface CompensationView {
+  summary: string;
+  verdict: string;
+  notes: string[];
+}
+
+export interface PersonalizationView {
+  language: "English" | "Spanish";
+  format: "Letter" | "A4";
+  keywords: string[];
+  recommendedProjects: string[];
+  summaryFocus: string;
+}
+
+export interface InterviewView {
+  likelihood: number;
+  rationale: string;
+  talkingPoints: string[];
+}
+
 export interface EvaluationReport {
   jobId?: number;
   archetypeId: string;
   archetypeLabel: string;
+  grade: "A" | "B" | "C" | "D" | "E" | "F";
   summary: string;
+  executiveSummary: string;
   scores: EvaluationScores;
   totalScore: number;
   recommendedAction: ActionRecommendation;
   rejectionReasons: string[];
   matchedKeywords: string[];
   missingKeywords: string[];
+  strongestSignals: string[];
+  riskSignals: string[];
+  cvMatches: CvMatchEntry[];
+  gaps: GapMitigation[];
+  levelStrategy: LevelStrategyBlock;
+  compensationView: CompensationView;
+  personalization: PersonalizationView;
+  interviewView: InterviewView;
   generatedAt: string;
 }
 
@@ -110,6 +224,10 @@ export interface ResumeVariant {
   html: string;
   htmlPath: string;
   pdfPath: string;
+  coverLetterPlainText: string;
+  coverLetterHtml: string;
+  coverLetterHtmlPath: string;
+  coverLetterPdfPath: string;
   generatedAt: string;
 }
 
@@ -120,6 +238,58 @@ export interface ApplicationDraft {
   roleSpecificAnswers: string[];
   reviewRequired: true;
   status: "drafted" | "reviewed" | "submitted";
+  generatedAt: string;
+}
+
+export interface OfferComparisonItem {
+  jobId: number;
+  company: string;
+  title: string;
+  totalScore: number;
+  grade: "A" | "B" | "C" | "D" | "E" | "F";
+  recommendedAction: ActionRecommendation;
+  strongestSignals: string[];
+  mainRisk: string;
+}
+
+export interface OfferComparison {
+  generatedAt: string;
+  summary: string;
+  ranking: OfferComparisonItem[];
+  shortlistIds: number[];
+}
+
+export interface DeepResearchReport {
+  jobId: number;
+  company: string;
+  executiveSummary: string;
+  businessModel: string;
+  productSignals: string[];
+  operatingSignals: string[];
+  risks: string[];
+  outreachAngles: string[];
+  generatedAt: string;
+}
+
+export interface ContactDraft {
+  jobId: number;
+  company: string;
+  recipientType: "recruiter" | "hiring_manager" | "peer";
+  subject: string;
+  opener: string;
+  message: string;
+  talkingPoints: string[];
+  generatedAt: string;
+}
+
+export interface TrainingAssessment {
+  source: string;
+  score: number;
+  verdict: "pursue" | "defer" | "skip";
+  targetArchetypes: string[];
+  summary: string;
+  strengths: string[];
+  gaps: string[];
   generatedAt: string;
 }
 
@@ -139,6 +309,7 @@ export interface RunSummary {
   created: number;
   updated: number;
   errors: string[];
+  jobIds?: number[];
 }
 
 export interface ScoringConfig {
@@ -209,3 +380,4 @@ export interface StoredJobRecord {
   createdAt: string;
   updatedAt: string;
 }
+
