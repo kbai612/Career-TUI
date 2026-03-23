@@ -49,6 +49,8 @@ const LINKEDIN_GUEST_MAX_ATTEMPTS = Number(process.env.CAREER_OPS_LINKEDIN_GUEST
 const LINKEDIN_GUEST_RETRY_BASE_MS = Number(process.env.CAREER_OPS_LINKEDIN_GUEST_RETRY_BASE_MS ?? 1250);
 const LINKEDIN_GUEST_PAGE_DELAY_MS = Number(process.env.CAREER_OPS_LINKEDIN_GUEST_PAGE_DELAY_MS ?? 300);
 const LINKEDIN_EXTERNAL_RESOLVE_LIMIT = Number(process.env.CAREER_OPS_LINKEDIN_EXTERNAL_RESOLVE_LIMIT ?? 25);
+const LINKEDIN_JOB_DETAIL_MAX_ATTEMPTS = Number(process.env.CAREER_OPS_LINKEDIN_JOB_DETAIL_MAX_ATTEMPTS ?? 2);
+const LINKEDIN_JOB_DETAIL_RETRY_BASE_MS = Number(process.env.CAREER_OPS_LINKEDIN_JOB_DETAIL_RETRY_BASE_MS ?? 500);
 const SOURCE_API_FETCH_TIMEOUT_MS = Number(process.env.CAREER_OPS_SOURCE_API_FETCH_TIMEOUT_MS ?? 20000);
 const SOURCE_SYNC_TIMEOUT_MS = Number(process.env.CAREER_OPS_SOURCE_SYNC_TIMEOUT_MS ?? 120000);
 const PERSISTENT_FETCH_QUEUE = new PQueue({ concurrency: 1 });
@@ -385,35 +387,202 @@ function extractExternalApplyUrlFromLinkedInJobHtml(html: string, jobUrl: string
   return null;
 }
 
-async function resolveLinkedInExternalApplyUrls(jobViewUrls: string[]): Promise<Map<string, string>> {
-  const resolved = new Map<string, string>();
+interface LinkedInResolvedJobDetails {
+  externalApplyUrl?: string;
+  compensationText?: string;
+}
+
+function extractLinkedInCompensationSnippet(text: string): string | null {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  const hasCompensationKeyword = /\b(?:salary|compensation|pay range|pay rate|base pay|base salary|hourly|annually|per year|per hour|ote|bonus|equity)\b/i;
+  const hasMoneySignal = /(?:[$\u00A3\u20AC\u00A5\u20B9]\s*\d[\d,.]*(?:\s*[KM])?|\b(?:cad|usd|eur|gbp)\b\s*\d[\d,.]*(?:\s*[KM])?|\b\d{2,3}\s*[KM]\b)/i;
+  const hasMoneyRangeSignal = /(?:[$\u00A3\u20AC\u00A5\u20B9]\s*\d[\d,.]*(?:\s*[KM])?\s*(?:-|\u2013|to)\s*(?:[$\u00A3\u20AC\u00A5\u20B9]\s*)?\d[\d,.]*(?:\s*[KM])?)/i;
+  const moneyTokenPattern = /(?:[$\u00A3\u20AC\u00A5\u20B9]\s*\d[\d,.]*(?:\s*[KM])?|\b(?:cad|usd|eur|gbp)\b\s*\d[\d,.]*(?:\s*[KM])?)/i;
+
+  const buildFocusedSnippet = (source: string): string => {
+    const trimmed = source.trim();
+    const rangeMatch = trimmed.match(hasMoneyRangeSignal);
+    if (rangeMatch?.[0]) {
+      return rangeMatch[0].trim().slice(0, 280);
+    }
+    const moneyMatch = moneyTokenPattern.exec(trimmed);
+    if (moneyMatch?.index != null) {
+      const keywordPattern = /\b(?:salary|compensation|pay range|pay rate|base pay|base salary|hourly|annually|per year|per hour|ote|bonus|equity)\b/gi;
+      let keywordStart = -1;
+      let keywordMatch: RegExpExecArray | null;
+      while ((keywordMatch = keywordPattern.exec(trimmed)) != null) {
+        if (keywordMatch.index > moneyMatch.index) {
+          break;
+        }
+        keywordStart = keywordMatch.index;
+      }
+      const start = keywordStart >= 0 && (moneyMatch.index - keywordStart) <= 120
+        ? keywordStart
+        : moneyMatch.index;
+      return trimmed.slice(start, start + 280).trim();
+    }
+    return trimmed.slice(0, 280);
+  };
+
+  const rangeMatch = normalized.match(hasMoneyRangeSignal);
+  if (rangeMatch?.[0]) {
+    return rangeMatch[0].trim().slice(0, 280);
+  }
+
+  const segments = normalized
+    .split(/\s*[|\u00B7]\s*/)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
+  for (const segment of segments) {
+    if (hasCompensationKeyword.test(segment) && hasMoneySignal.test(segment)) {
+      return buildFocusedSnippet(segment);
+    }
+  }
+
+  const sentences = normalized
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 0);
+  for (const sentence of sentences) {
+    if (hasCompensationKeyword.test(sentence) && hasMoneySignal.test(sentence)) {
+      return buildFocusedSnippet(sentence);
+    }
+  }
+  return null;
+}
+
+function extractLinkedInTopCardCompensationHint(html: string): string | null {
+  const topCardMatch = html.match(
+    /<section[^>]*class="[^"]*top-card-layout[^"]*"[^>]*>([\s\S]*?)<\/section>/i
+  );
+  if (topCardMatch == null) {
+    return null;
+  }
+  const topCardText = stripHtmlTags(decodeHtmlAttribute(topCardMatch[1])).replace(/\s+/g, " ").trim();
+  if (topCardText.length === 0) {
+    return null;
+  }
+  return extractLinkedInCompensationSnippet(topCardText);
+}
+
+function extractLinkedInJobPostingJsonLdDescription(html: string): string | null {
+  const scriptPattern = /<script\b[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = scriptPattern.exec(html)) != null) {
+    const rawJson = decodeHtmlAttribute(match[1]).trim();
+    if (rawJson.length === 0) {
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(rawJson);
+      const entries = Array.isArray(parsed) ? parsed : [parsed];
+      for (const entry of entries) {
+        if (entry == null || typeof entry !== "object") {
+          continue;
+        }
+        const record = entry as Record<string, unknown>;
+        const type = record["@type"];
+        const isJobPosting = type === "JobPosting" || (Array.isArray(type) && type.includes("JobPosting"));
+        if (!isJobPosting) {
+          continue;
+        }
+        const description = record.description;
+        if (typeof description !== "string") {
+          continue;
+        }
+        const normalized = stripHtmlTags(decodeHtmlAttribute(description)).replace(/\s+/g, " ").trim();
+        if (normalized.length > 0) {
+          return normalized;
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+function extractLinkedInDescriptionCompensationHint(html: string): string | null {
+  const descriptionMatch = html.match(
+    /<div[^>]*class="[^"]*(?:show-more-less-html__markup|description__text--rich|description__text)[^"]*"[^>]*>([\s\S]*?)<\/div>/i
+  );
+  const candidates: string[] = [];
+  if (descriptionMatch != null) {
+    const descriptionText = stripHtmlTags(decodeHtmlAttribute(descriptionMatch[1])).replace(/\s+/g, " ").trim();
+    if (descriptionText.length > 0) {
+      candidates.push(descriptionText);
+    }
+  }
+  const jsonLdDescription = extractLinkedInJobPostingJsonLdDescription(html);
+  if (jsonLdDescription != null) {
+    candidates.push(jsonLdDescription);
+  }
+  for (const candidate of candidates) {
+    const snippet = extractLinkedInCompensationSnippet(candidate);
+    if (snippet != null) {
+      return snippet;
+    }
+  }
+  return null;
+}
+
+function extractLinkedInCompensationTextFromJobHtml(html: string): string | undefined {
+  const topCardHint = extractLinkedInTopCardCompensationHint(html);
+  if (topCardHint != null) {
+    return topCardHint;
+  }
+  const descriptionHint = extractLinkedInDescriptionCompensationHint(html);
+  return descriptionHint ?? undefined;
+}
+
+async function resolveLinkedInJobDetails(jobViewUrls: string[]): Promise<Map<string, LinkedInResolvedJobDetails>> {
+  const resolved = new Map<string, LinkedInResolvedJobDetails>();
   if (jobViewUrls.length === 0) {
     return resolved;
   }
-  const queue = new PQueue({ concurrency: 4 });
+  const queue = new PQueue({ concurrency: 2 });
   await Promise.all(
     jobViewUrls.map((jobUrl) => queue.add(async () => {
-      try {
-        const response = await fetchWithTimeout(new URL(jobUrl), { headers: DEFAULT_HTTP_HEADERS }, LINKEDIN_FETCH_TIMEOUT_MS);
-        if (!response.ok) {
+      for (let attempt = 1; attempt <= LINKEDIN_JOB_DETAIL_MAX_ATTEMPTS; attempt += 1) {
+        try {
+          const response = await fetchWithTimeout(new URL(jobUrl), { headers: DEFAULT_HTTP_HEADERS }, LINKEDIN_FETCH_TIMEOUT_MS);
+          if (!response.ok) {
+            if (isLinkedInGuestRateLimitStatus(response.status) && attempt < LINKEDIN_JOB_DETAIL_MAX_ATTEMPTS) {
+              await sleep(LINKEDIN_JOB_DETAIL_RETRY_BASE_MS * attempt);
+              continue;
+            }
+            return;
+          }
+          const html = await response.text();
+          const externalApplyUrl = extractExternalApplyUrlFromLinkedInJobHtml(html, jobUrl);
+          const compensationText = extractLinkedInCompensationTextFromJobHtml(html);
+          if (externalApplyUrl == null && compensationText == null) {
+            return;
+          }
+          resolved.set(jobUrl, {
+            externalApplyUrl: externalApplyUrl ?? undefined,
+            compensationText
+          });
+          return;
+        } catch {
+          if (attempt < LINKEDIN_JOB_DETAIL_MAX_ATTEMPTS) {
+            await sleep(LINKEDIN_JOB_DETAIL_RETRY_BASE_MS * attempt);
+            continue;
+          }
           return;
         }
-        const html = await response.text();
-        const externalApplyUrl = extractExternalApplyUrlFromLinkedInJobHtml(html, jobUrl);
-        if (externalApplyUrl == null) {
-          return;
-        }
-        resolved.set(jobUrl, externalApplyUrl);
-      } catch {
-        return;
       }
     }))
   );
   return resolved;
 }
 
-function rewriteLinkedInGuestCardLinks(html: string, resolvedUrls: Map<string, string>): string {
-  if (resolvedUrls.size === 0) {
+function rewriteLinkedInGuestCardLinks(html: string, resolvedJobDetails: Map<string, LinkedInResolvedJobDetails>): string {
+  if (resolvedJobDetails.size === 0) {
     return html;
   }
   return html.replace(/href="([^"]+)"/gi, (fullMatch, rawHref: string) => {
@@ -422,11 +591,15 @@ function rewriteLinkedInGuestCardLinks(html: string, resolvedUrls: Map<string, s
     if (!absoluteHref) {
       return fullMatch;
     }
-    const replacement = resolvedUrls.get(absoluteHref);
-    if (replacement == null) {
+    const details = resolvedJobDetails.get(absoluteHref);
+    if (details == null) {
       return fullMatch;
     }
-    return `href="${escapeHtmlAttribute(replacement)}"`;
+    const rewrittenHref = details.externalApplyUrl ?? absoluteHref;
+    const compensationAttribute = details.compensationText != null
+      ? ` data-linkedin-compensation="${escapeHtmlAttribute(details.compensationText)}"`
+      : "";
+    return `href="${escapeHtmlAttribute(rewrittenHref)}"${compensationAttribute}`;
   });
 }
 
@@ -480,8 +653,8 @@ async function fetchLinkedInGuestSearchHtml(sourceUrl: string): Promise<string> 
           .slice(0, remainingResolveBudget)
       : [];
     remainingResolveBudget -= jobViewUrls.length;
-    const resolvedUrls = await resolveLinkedInExternalApplyUrls(jobViewUrls);
-    const rewrittenHtml = rewriteLinkedInGuestCardLinks(html, resolvedUrls);
+    const resolvedJobDetails = await resolveLinkedInJobDetails(jobViewUrls);
+    const rewrittenHtml = rewriteLinkedInGuestCardLinks(html, resolvedJobDetails);
     pages.push(rewrittenHtml);
     const pageCardCount = (html.match(/base-search-card--link|job-search-card/g) ?? []).length;
     if (pageCardCount < 25) {

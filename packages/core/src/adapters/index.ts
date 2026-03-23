@@ -656,6 +656,10 @@ export const linkedinAdapter: PortalAdapter = {
       }
       seenApplyUrls.add(applyUrl);
       const metaText = normalizeText(card.find(".base-search-card__metadata, .job-search-card__listdate, time").first().text()) || undefined;
+      const compensationHint = normalizeText(anchor.attr("data-linkedin-compensation")) || undefined;
+      const compensationSource = compensationHint ?? metaText;
+      const parsedCompensation = parseCompensation(compensationSource);
+      const description = [metaText, compensationHint].filter((part): part is string => part != null && part.length > 0).join(" | ") || undefined;
       jobs.push({
         portal: "linkedin",
         sourceUrl,
@@ -666,12 +670,13 @@ export const linkedinAdapter: PortalAdapter = {
           || normalizeText(card.find(".base-search-card__metadata").first().text())
           || "Unknown",
         postedAt: parseLinkedInPostedAt(card, metaText),
-        description: metaText,
+        description,
         metadata: {
           ...parseCompensation(metaText),
+          ...(compensationHint != null ? { linkedinCompensationHint: compensationHint } : {}),
           nonCanonicalDiscovery: true
         },
-        ...parseCompensation(metaText)
+        ...parsedCompensation
       });
     });
     const discoveredJobs = jobs.length > 0

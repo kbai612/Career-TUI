@@ -4,8 +4,9 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApplicationDraft, ensureReviewRequired } from "../src/application";
 import { ashbyAdapter, genericCareersAdapter, greenhouseAdapter, leverAdapter, levelsAdapter, linkedinAdapter, workdayAdapter } from "../src/adapters";
+import { parseCompensation } from "../src/compensation";
 import { loadArchetypeConfig, loadProfilePack, loadRegionConfig, loadScoringConfig } from "../src/config";
-import { buildFingerprint, incrementVisitCount } from "../src/dedup";
+import { buildFingerprint, incrementVisitCount, normalizeListing } from "../src/dedup";
 import { canonicalizeUrl, filterListingsByRegion } from "../src/discovery";
 import { CareerOpsPipeline } from "../src/pipeline";
 import { buildResumeVariant } from "../src/resume";
@@ -94,6 +95,58 @@ describe("schemas, adapters, resume, and derived artifacts", () => {
     description: "SQL Tableau Power BI dashboard KPI stakeholder reporting A/B testing experimentation business insights"
   };
 
+  it("parses compensation values without mixing in unrelated numeric text", () => {
+    const hourly = parseCompensation("Pay Rate: Starting from $58 per hour. Contract Period: 4 months.");
+    expect(hourly.salaryMin).toBe(58);
+    expect(hourly.salaryMax).toBeUndefined();
+
+    const currencySuffix = parseCompensation("Compensation: 120,000 CAD - 140,000 CAD base salary.");
+    expect(currencySuffix.salaryMin).toBe(120000);
+    expect(currencySuffix.salaryMax).toBe(140000);
+
+    const noCommaRange = parseCompensation("Salary: $120000-$150000 CAD based on experience.");
+    expect(noCommaRange.salaryMin).toBe(120000);
+    expect(noCommaRange.salaryMax).toBe(150000);
+
+    const currentRange = parseCompensation("The current range is $125,000.00 - 130000.00 for this role.");
+    expect(currentRange.salaryMin).toBe(125000);
+    expect(currentRange.salaryMax).toBe(130000);
+
+    const rangeVariants = [
+      {
+        text: "Salary range: CAD 115000 - 140000 base salary.",
+        min: 115000,
+        max: 140000
+      },
+      {
+        text: "Compensation: USD 115,000 to USD 140,000 plus bonus.",
+        min: 115000,
+        max: 140000
+      },
+      {
+        text: "Annual salary range is 115000-140000 per year depending on level.",
+        min: 115000,
+        max: 140000
+      },
+      {
+        text: "Expected base pay is $115k - $140k for this position.",
+        min: 115000,
+        max: 140000
+      },
+      {
+        text: "Our current range is CAD 120,000 – 145,000 with equity.",
+        min: 120000,
+        max: 145000
+      }
+    ];
+
+    for (const variant of rangeVariants) {
+      const parsed = parseCompensation(variant.text);
+      expect(parsed.salaryMin, `failed salaryMin parse for: ${variant.text}`).toBe(variant.min);
+      expect(parsed.salaryMax, `failed salaryMax parse for: ${variant.text}`).toBe(variant.max);
+    }
+  });
+
   it("validates evaluator schema", () => {
     const report = deterministicEvaluation(job, archetypes, scoring, profile);
     expect(validateAgentOutput(evaluationReportSchema, report).summary).toContain("scores");
@@ -146,7 +199,7 @@ describe("schemas, adapters, resume, and derived artifacts", () => {
   it("parses linkedin and levels discovery pages and preserves canonical URLs", () => {
     const linkedinHtml = `
       <div class="base-search-card">
-        <a class="base-card__full-link" href="https://jobs.northwind.com/apply/123?utm_source=linkedin&ref=abc">View</a>
+        <a class="base-card__full-link" href="https://jobs.northwind.com/apply/123?utm_source=linkedin&ref=abc" data-linkedin-compensation="Salary range: $125,000.00 - $130,000.00 CAD base + bonus">View</a>
         <h3 class="base-search-card__title">Senior Data Analyst</h3>
         <h4 class="base-search-card__subtitle">Northwind Analytics</h4>
         <span class="job-search-card__location">Toronto, Ontario, Canada</span>
@@ -186,6 +239,8 @@ describe("schemas, adapters, resume, and derived artifacts", () => {
 
     expect(linkedinListing.applyUrl).toBe("https://jobs.northwind.com/apply/123");
     expect(linkedinListing.postedAt).toBe("2026-03-20T11:00:00.000Z");
+    expect(linkedinListing.salaryMin).toBe(125000);
+    expect(linkedinListing.salaryMax).toBe(130000);
     expect(levelsListing.applyUrl).toBe("https://boards.greenhouse.io/acme/jobs/456");
     expect(levelsListing.salaryMin).toBe(180000);
     expect(levelsListing.company).toBe("Acme AI");
@@ -350,6 +405,9 @@ describe("schemas, adapters, resume, and derived artifacts", () => {
     ];
 
     expect(canonicalizeUrl("https://www.linkedin.com/jobs/view/123?trk=foo&utm_source=bar")).toBe("https://www.linkedin.com/jobs/view/123");
+    expect(
+      canonicalizeUrl("https://ca.linkedin.com/jobs/view/data-scientist-at-interac-corp-4359267316?position=10&pageNum=0")
+    ).toBe("https://ca.linkedin.com/jobs/view/data-scientist-at-interac-corp-4359267316");
     expect(region).toBeDefined();
     expect(filterListingsByRegion(listings, region!).map((listing) => listing.company)).toEqual(["Northwind"]);
   });
@@ -469,6 +527,153 @@ describe("pipeline", () => {
     expect(thirdRead[0]!.job.status).toBe("evaluated");
   });
 
+  it("deduplicates canonical apply-url variants and preserves compensation details", () => {
+    const firstId = pipeline.repo.upsertJob(normalizeListing({
+      portal: "generic",
+      sourceUrl: "https://example.com/careers",
+      applyUrl: "https://example.com/jobs/123",
+      company: "Acme Analytics",
+      title: "Data Analyst",
+      location: "Toronto, Ontario, Canada",
+      compensationText: "$120,000 - $150,000",
+      salaryMin: 120000,
+      salaryMax: 150000,
+      description: "Initial variant with compensation."
+    }, "normalized"));
+
+    const secondId = pipeline.repo.upsertJob(normalizeListing({
+      portal: "generic",
+      sourceUrl: "https://example.com/careers",
+      applyUrl: "https://example.com/jobs/123",
+      company: "Acme Analytics",
+      title: "Data Analyst",
+      location: "Remote",
+      externalId: "acme-123",
+      description: "Duplicate variant without compensation."
+    }, "normalized"));
+
+    const records = pipeline.repo.listJobs();
+    expect(secondId).toBe(firstId);
+    expect(records).toHaveLength(1);
+    expect(records[0]?.job.salaryMin).toBe(120000);
+    expect(records[0]?.job.salaryMax).toBe(150000);
+    expect(records[0]?.job.compensationText).toBe("$120,000 - $150,000");
+  });
+
+  it("keeps only the latest posted_at for duplicate postings of the same role", () => {
+    const olderPostedAt = "2026-03-20T09:00:00.000Z";
+    const newerPostedAt = "2026-03-22T09:00:00.000Z";
+    const applyUrl = "https://example.com/jobs/999";
+
+    pipeline.repo.upsertJob(normalizeListing({
+      portal: "generic",
+      sourceUrl: "https://example.com/careers",
+      applyUrl,
+      company: "Acme Analytics",
+      title: "Senior Data Analyst",
+      location: "Toronto, Ontario, Canada",
+      postedAt: olderPostedAt,
+      description: "Older posting snapshot."
+    }, "normalized"));
+
+    const newerId = pipeline.repo.upsertJob(normalizeListing({
+      portal: "generic",
+      sourceUrl: "https://example.com/careers",
+      applyUrl,
+      company: "Acme Analytics",
+      title: "Senior Data Analyst",
+      location: "Toronto, Ontario, Canada",
+      postedAt: newerPostedAt,
+      description: "Newer posting snapshot."
+    }, "normalized"));
+
+    // Re-ingest an older variant to ensure the latest posted_at is not downgraded.
+    const olderReingestId = pipeline.repo.upsertJob(normalizeListing({
+      portal: "generic",
+      sourceUrl: "https://example.com/careers",
+      applyUrl,
+      company: "Acme Analytics",
+      title: "Senior Data Analyst",
+      location: "Remote",
+      externalId: "legacy-variant",
+      postedAt: olderPostedAt,
+      description: "Reingested older variant."
+    }, "normalized"));
+
+    const records = pipeline.repo.listJobs();
+    expect(records).toHaveLength(1);
+    expect(olderReingestId).toBe(newerId);
+    expect(records[0]?.job.postedAt).toBe(newerPostedAt);
+  });
+
+  it("deduplicates same-link variants and stores the canonical apply url", () => {
+    const olderPostedAt = "2026-03-20T09:00:00.000Z";
+    const newerPostedAt = "2026-03-22T09:00:00.000Z";
+    const trackedApplyUrl = "https://example.com/jobs/200?utm_source=linkedin&ref=campaign";
+    const canonicalApplyUrl = "https://example.com/jobs/200";
+
+    const firstId = pipeline.repo.upsertJob(normalizeListing({
+      portal: "generic",
+      sourceUrl: "https://example.com/careers",
+      applyUrl: trackedApplyUrl,
+      company: "Acme Analytics",
+      title: "Data Analyst",
+      location: "Toronto, Ontario, Canada",
+      postedAt: olderPostedAt,
+      description: "Tracked link variant."
+    }, "normalized"));
+
+    const secondId = pipeline.repo.upsertJob(normalizeListing({
+      portal: "generic",
+      sourceUrl: "https://example.com/careers",
+      applyUrl: canonicalApplyUrl,
+      company: "Acme Analytics Inc.",
+      title: "Business Data Analyst",
+      location: "Remote",
+      postedAt: newerPostedAt,
+      description: "Canonical link variant."
+    }, "normalized"));
+
+    const records = pipeline.repo.listJobs();
+    expect(records).toHaveLength(1);
+    expect(secondId).toBe(firstId);
+    expect(records[0]?.job.applyUrl).toBe("https://example.com/jobs/200");
+    expect(records[0]?.job.postedAt).toBe(newerPostedAt);
+  });
+
+  it("deduplicates linkedin hosted variants with different list params and job ids for the same slug", () => {
+    const olderPostedAt = "2026-03-20T09:00:00.000Z";
+    const newerPostedAt = "2026-03-22T09:00:00.000Z";
+
+    const firstId = pipeline.repo.upsertJob(normalizeListing({
+      portal: "linkedin",
+      sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Data%20Scientist&location=Toronto%2C%20Ontario%2C%20Canada&f_TPR=r86400",
+      applyUrl: "https://ca.linkedin.com/jobs/view/credit-analyst-business-banking-at-bmo-4385518987?position=2&pageNum=2",
+      company: "BMO",
+      title: "Credit Analyst - Business Banking",
+      location: "Mississauga, Ontario, Canada",
+      postedAt: olderPostedAt,
+      description: "Mississauga, Ontario, Canada Actively Hiring 4 hours ago"
+    }, "normalized"));
+
+    const secondId = pipeline.repo.upsertJob(normalizeListing({
+      portal: "linkedin",
+      sourceUrl: "https://www.linkedin.com/jobs/search/?keywords=Senior%20Data%20Analyst&location=Toronto%2C%20Ontario%2C%20Canada&f_TPR=r86400",
+      applyUrl: "https://ca.linkedin.com/jobs/view/credit-analyst-business-banking-at-bmo-4385521737?position=3&pageNum=2",
+      company: "BMO",
+      title: "Credit Analyst - Business Banking",
+      location: "Mississauga, Ontario, Canada",
+      postedAt: newerPostedAt,
+      description: "Mississauga, Ontario, Canada Actively Hiring 4 hours ago"
+    }, "normalized"));
+
+    const records = pipeline.repo.listJobs();
+    expect(records).toHaveLength(1);
+    expect(secondId).toBe(firstId);
+    expect(records[0]?.job.postedAt).toBe(newerPostedAt);
+    expect(records[0]?.job.applyUrl).toBe("https://ca.linkedin.com/jobs/view/credit-analyst-business-banking-at-bmo-4385521737");
+  });
+
   it("clears all listings and listing artifacts", async () => {
     const [jobId] = pipeline.seedDemoJobs([
       {
@@ -550,7 +755,7 @@ describe("pipeline", () => {
     const sourceNames = sources.map((source) => source.name);
     const linkedinSources = sources.filter((source) => source.kind === "linkedin");
 
-    expect(ids).toHaveLength(11);
+    expect(ids).toHaveLength(20);
     expect(sourceNames).toEqual(expect.arrayContaining([
       "LinkedIn Toronto Data Analyst",
       "LinkedIn Toronto Senior Data Analyst",
@@ -560,12 +765,40 @@ describe("pipeline", () => {
       "Levels Toronto Senior Data Analyst",
       "Levels Toronto Analytics Engineer",
       "Levels Toronto Data Scientist",
-      "Workopolis Toronto Data Jobs",
-      "Indeed Canada Toronto Data Jobs",
-      "SimplyHired Canada Toronto Data Jobs"
+      "Workopolis Toronto Data Analyst Jobs",
+      "Workopolis Toronto Senior Data Analyst Jobs",
+      "Workopolis Toronto Analytics Engineer Jobs",
+      "Workopolis Toronto Data Scientist Jobs",
+      "Indeed Canada Toronto Data Analyst Jobs",
+      "Indeed Canada Toronto Senior Data Analyst Jobs",
+      "Indeed Canada Toronto Analytics Engineer Jobs",
+      "Indeed Canada Toronto Data Scientist Jobs",
+      "SimplyHired Canada Toronto Data Analyst Jobs",
+      "SimplyHired Canada Toronto Senior Data Analyst Jobs",
+      "SimplyHired Canada Toronto Analytics Engineer Jobs",
+      "SimplyHired Canada Toronto Data Scientist Jobs"
     ]));
     for (const source of linkedinSources) {
       expect(new URL(source.sourceUrl).searchParams.get("f_TPR")).toBe("r86400");
+    }
+    const workopolisSources = sources.filter((source) => source.name.startsWith("Workopolis Toronto "));
+    const indeedSources = sources.filter((source) => source.name.startsWith("Indeed Canada Toronto "));
+    const simplyHiredSources = sources.filter((source) => source.name.startsWith("SimplyHired Canada Toronto "));
+    expect(workopolisSources).toHaveLength(4);
+    expect(indeedSources).toHaveLength(4);
+    expect(simplyHiredSources).toHaveLength(4);
+    for (const source of [...workopolisSources, ...indeedSources, ...simplyHiredSources]) {
+      expect(source.sourceUrl).not.toContain(" OR ");
+      expect(source.metadata?.maxAgeHours).toBe(24);
+    }
+    for (const source of workopolisSources) {
+      expect(new URL(source.sourceUrl).searchParams.get("d")).toBe("1");
+    }
+    for (const source of indeedSources) {
+      expect(new URL(source.sourceUrl).searchParams.get("fromage")).toBe("1");
+    }
+    for (const source of simplyHiredSources) {
+      expect(new URL(source.sourceUrl).searchParams.get("fdb")).toBe("1");
     }
   });
 
@@ -615,6 +848,33 @@ describe("pipeline", () => {
       usePersistentBrowser: false,
       metadata: { role: "data", discoveryOnly: true }
     });
+    pipeline.registerSource({
+      name: "Workopolis Toronto Data Jobs (Legacy OR URL)",
+      sourceUrl: "https://www.workopolis.com/jobsearch/find-jobs?ak=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON",
+      kind: "generic",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { role: "data", discoveryOnly: true }
+    });
+    pipeline.registerSource({
+      name: "Indeed Canada Toronto Data Jobs (Legacy OR URL)",
+      sourceUrl: "https://ca.indeed.com/jobs?q=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON",
+      kind: "generic",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { role: "data", discoveryOnly: true }
+    });
+    pipeline.registerSource({
+      name: "SimplyHired Canada Toronto Data Jobs (Legacy OR URL)",
+      sourceUrl: "https://www.simplyhired.ca/search?q=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON",
+      kind: "generic",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { role: "data", discoveryOnly: true }
+    });
 
     pipeline.seedTorontoDiscoverySources();
 
@@ -624,11 +884,17 @@ describe("pipeline", () => {
     const legacyLeverCasewareSource = allSources.find((source) => source.sourceUrl === "https://jobs.lever.co/caseware");
     const legacyLevelsSource = allSources.find((source) => source.sourceUrl === "https://www.levels.fyi/jobs/?location=Toronto%2C%20Ontario%2C%20Canada&searchText=data");
     const legacyLevelsLocationSource = allSources.find((source) => source.sourceUrl === "https://www.levels.fyi/jobs/location/greater-toronto-area");
+    const legacyWorkopolisSource = allSources.find((source) => source.sourceUrl === "https://www.workopolis.com/jobsearch/find-jobs?ak=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON");
+    const legacyIndeedSource = allSources.find((source) => source.sourceUrl === "https://ca.indeed.com/jobs?q=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON");
+    const legacySimplyHiredSource = allSources.find((source) => source.sourceUrl === "https://www.simplyhired.ca/search?q=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON");
     expect(legacyGreenhouseSource?.active).toBe(false);
     expect(legacyLeverShyftlabsSource?.active).toBe(false);
     expect(legacyLeverCasewareSource?.active).toBe(false);
     expect(legacyLevelsSource?.active).toBe(false);
     expect(legacyLevelsLocationSource?.active).toBe(false);
+    expect(legacyWorkopolisSource?.active).toBe(false);
+    expect(legacyIndeedSource?.active).toBe(false);
+    expect(legacySimplyHiredSource?.active).toBe(false);
   });
 
   it("registers and syncs Toronto discovery sources with canonical apply URLs", async () => {
@@ -730,6 +996,95 @@ describe("pipeline", () => {
     expect(run.processed).toBe(1);
     expect(jobs).toHaveLength(1);
     expect(jobs[0]?.job.title).toBe("Senior Data Analyst");
+  });
+
+  it("excludes manager/director/lead and senior/system analyst variants while keeping data scientist", async () => {
+    const sourceId = pipeline.registerSource({
+      name: "Greenhouse DS Title Filter",
+      sourceUrl: "https://boards.greenhouse.io/embed/job_board?for=example",
+      kind: "greenhouse",
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: { discoveryOnly: true }
+    });
+    const recentPostedAt = new Date(Date.now() - (60 * 60 * 1000)).toISOString();
+    const greenhouseApiPayload = JSON.stringify({
+      jobs: [
+        {
+          id: 2001,
+          title: "Data Scientist",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/2001",
+          updated_at: recentPostedAt,
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>IC role</p>"
+        },
+        {
+          id: 2002,
+          title: "Senior Data Scientist",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/2002",
+          updated_at: recentPostedAt,
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>Senior IC role</p>"
+        },
+        {
+          id: 2003,
+          title: "Analytics Manager",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/2003",
+          updated_at: recentPostedAt,
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>Manager role</p>"
+        },
+        {
+          id: 2004,
+          title: "Director, Data Science",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/2004",
+          updated_at: recentPostedAt,
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>Director role</p>"
+        },
+        {
+          id: 2005,
+          title: "Lead Data Scientist",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/2005",
+          updated_at: recentPostedAt,
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>Lead role</p>"
+        },
+        {
+          id: 2006,
+          title: "Senior Data Engineer",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/2006",
+          updated_at: recentPostedAt,
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>Senior DE role</p>"
+        },
+        {
+          id: 2007,
+          title: "Systems Analyst",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/2007",
+          updated_at: recentPostedAt,
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>Systems role</p>"
+        },
+        {
+          id: 2008,
+          title: "Senior Machine Learning Engineer",
+          absolute_url: "https://boards.greenhouse.io/example/jobs/2008",
+          updated_at: recentPostedAt,
+          location: { name: "Toronto, Ontario, Canada" },
+          content: "<p>Senior MLE role</p>"
+        }
+      ]
+    });
+
+    const run = await pipeline.syncRegisteredSource(sourceId, greenhouseApiPayload);
+    const jobs = pipeline.repo.listJobs();
+
+    expect(run.status).toBe("success");
+    expect(run.processed).toBe(1);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.job.title).toBe("Data Scientist");
   });
 
   it("applies default 24-hour filter for linkedin discovery sources when postedAt is available", async () => {

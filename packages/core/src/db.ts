@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { sql } from "drizzle-orm";
 import { sanitizeCompensationText } from "./compensation";
+import { canonicalizeUrl } from "./discovery";
 import { assertTransition } from "./state-machine";
 import type {
   ApplicationDraft,
@@ -78,6 +79,81 @@ function sanitizeStoredJson(json: string): string {
   }
 }
 
+function normalizeDedupeText(value: string | undefined): string {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/https?:\/\//g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function canonicalizeApplyUrlForStorage(value: string | undefined): string {
+  const raw = (value ?? "").trim();
+  if (raw.length === 0) {
+    return "";
+  }
+  return canonicalizeUrl(raw);
+}
+
+function extractLinkedInJobSlugKey(value: string | undefined): string | null {
+  const raw = (value ?? "").trim();
+  if (raw.length === 0) {
+    return null;
+  }
+  try {
+    const url = new URL(raw);
+    if (!/(^|\.)linkedin\.com$/i.test(url.hostname)) {
+      return null;
+    }
+    const match = url.pathname.match(/^\/jobs\/view\/([^/]+)\/?$/i);
+    if (match == null) {
+      return null;
+    }
+    const segment = decodeURIComponent(match[1]).trim().toLowerCase();
+    if (segment.length === 0) {
+      return null;
+    }
+
+    const slugWithId = segment.match(/^(.*?)-(\d{6,})$/);
+    if (slugWithId?.[1] != null && slugWithId[1].trim().length > 0) {
+      return normalizeDedupeText(slugWithId[1]);
+    }
+    return normalizeDedupeText(segment);
+  } catch {
+    return null;
+  }
+}
+
+function pickLatestTimestamp(existing: string | null | undefined, incoming: string | null | undefined): string | null {
+  if (!existing && !incoming) {
+    return null;
+  }
+  if (!existing) {
+    return incoming ?? null;
+  }
+  if (!incoming) {
+    return existing;
+  }
+
+  const existingTs = Date.parse(existing);
+  const incomingTs = Date.parse(incoming);
+  const existingValid = Number.isFinite(existingTs);
+  const incomingValid = Number.isFinite(incomingTs);
+
+  if (existingValid && incomingValid) {
+    return incomingTs > existingTs ? incoming : existing;
+  }
+  if (incomingValid) {
+    return incoming;
+  }
+  if (existingValid) {
+    return existing;
+  }
+  return incoming > existing ? incoming : existing;
+}
+
 export class CareerOpsRepository {
   readonly sqlite: Database.Database;
   readonly db;
@@ -89,6 +165,7 @@ export class CareerOpsRepository {
     this.sqlite.pragma("journal_mode = WAL");
     this.db = drizzle(this.sqlite);
     this.migrate();
+    this.deduplicateJobsByCanonicalKey();
   }
 
   private migrate(): void {
@@ -193,6 +270,106 @@ export class CareerOpsRepository {
     `);
   }
 
+  private buildCanonicalJobKey(applyUrl: string | undefined, company: string | undefined, title: string | undefined): string {
+    const canonicalApplyUrl = canonicalizeApplyUrlForStorage(applyUrl);
+    const linkedInJobSlugKey = extractLinkedInJobSlugKey(canonicalApplyUrl);
+    if (linkedInJobSlugKey != null && linkedInJobSlugKey.length > 0) {
+      return `linkedin|${linkedInJobSlugKey}`;
+    }
+
+    const normalizedApplyUrl = normalizeDedupeText(canonicalApplyUrl);
+    if (normalizedApplyUrl.length > 0) {
+      return `url|${normalizedApplyUrl}`;
+    }
+    return `meta|${normalizeDedupeText(company)}|${normalizeDedupeText(title)}`;
+  }
+
+  private moveArtifactToKeep(table: "evaluations" | "resumes" | "applications" | "research_reports" | "contact_drafts", keepId: number, duplicateId: number): void {
+    this.sqlite.prepare(`
+      update ${table}
+      set job_id = ?
+      where job_id = ?
+        and not exists (select 1 from ${table} where job_id = ?)
+    `).run(keepId, duplicateId, keepId);
+  }
+
+  private deduplicateJobsByCanonicalKey(): void {
+    const runDedupe = this.sqlite.transaction(() => {
+      const rows = this.sqlite.prepare(`
+        select id, apply_url, company, title, compensation_text, salary_min, salary_max, posted_at
+        from jobs
+        order by (posted_at is null), posted_at desc, updated_at desc, id desc
+      `).all() as Array<{
+        id: number;
+        apply_url: string;
+        company: string;
+        title: string;
+        compensation_text: string | null;
+        salary_min: number | null;
+        salary_max: number | null;
+        posted_at: string | null;
+      }>;
+      const keptByKey = new Map<string, { id: number; postedAt: string | null; applyUrl: string }>();
+      let removed = 0;
+
+      for (const row of rows) {
+        const canonicalApplyUrl = canonicalizeApplyUrlForStorage(row.apply_url);
+        if (canonicalApplyUrl.length > 0 && canonicalApplyUrl !== row.apply_url) {
+          this.sqlite.prepare("update jobs set apply_url = ? where id = ?").run(canonicalApplyUrl, row.id);
+          row.apply_url = canonicalApplyUrl;
+        }
+
+        const key = this.buildCanonicalJobKey(canonicalApplyUrl, row.company, row.title);
+        if (key === "meta||") {
+          continue;
+        }
+        const keep = keptByKey.get(key);
+        if (keep == null) {
+          keptByKey.set(key, { id: row.id, postedAt: row.posted_at, applyUrl: canonicalApplyUrl });
+          continue;
+        }
+        const mergedPostedAt = pickLatestTimestamp(keep.postedAt, row.posted_at);
+        const mergedApplyUrl = keep.applyUrl.length > 0 ? keep.applyUrl : canonicalApplyUrl;
+        keptByKey.set(key, { id: keep.id, postedAt: mergedPostedAt, applyUrl: mergedApplyUrl });
+
+        this.sqlite.prepare(`
+          update jobs
+          set
+            apply_url = case when ? <> '' then ? else apply_url end,
+            compensation_text = coalesce(compensation_text, ?),
+            salary_min = coalesce(salary_min, ?),
+            salary_max = coalesce(salary_max, ?),
+            posted_at = ?
+          where id = ?
+        `).run(
+          mergedApplyUrl,
+          mergedApplyUrl,
+          row.compensation_text,
+          row.salary_min,
+          row.salary_max,
+          mergedPostedAt,
+          keep.id
+        );
+
+        this.moveArtifactToKeep("evaluations", keep.id, row.id);
+        this.moveArtifactToKeep("resumes", keep.id, row.id);
+        this.moveArtifactToKeep("applications", keep.id, row.id);
+        this.moveArtifactToKeep("research_reports", keep.id, row.id);
+        this.moveArtifactToKeep("contact_drafts", keep.id, row.id);
+
+        this.sqlite.prepare("delete from jobs where id = ?").run(row.id);
+        removed += 1;
+      }
+
+      return removed;
+    });
+
+    const removedCount = runDedupe();
+    if (removedCount > 0) {
+      this.invalidateJobCache();
+    }
+  }
+
   close(): void {
     this.sqlite.close();
   }
@@ -204,12 +381,60 @@ export class CareerOpsRepository {
   upsertJob(job: NormalizedJob): number {
     const now = new Date().toISOString();
     const sanitizedCompensation = sanitizeStoredCompensation(job.compensationText, job.salaryMin, job.salaryMax);
+    const canonicalApplyUrl = canonicalizeApplyUrlForStorage(job.applyUrl);
     const sanitizedJob: NormalizedJob = {
       ...job,
+      applyUrl: canonicalApplyUrl.length > 0 ? canonicalApplyUrl : job.applyUrl,
       compensationText: sanitizedCompensation.compensationText,
       salaryMin: sanitizedCompensation.salaryMin,
       salaryMax: sanitizedCompensation.salaryMax
     };
+    let dedupeCandidate: { id: number; fingerprint: string } | undefined;
+    if ((sanitizedJob.applyUrl ?? "").trim().length > 0) {
+      dedupeCandidate = this.sqlite.prepare(`
+        select id, fingerprint
+        from jobs
+        where apply_url = ?
+        order by (posted_at is null), posted_at desc, updated_at desc, id desc
+        limit 1
+      `).get(
+        sanitizedJob.applyUrl
+      ) as { id: number; fingerprint: string } | undefined;
+
+      if (dedupeCandidate == null) {
+        const linkedInJobSlugKey = extractLinkedInJobSlugKey(sanitizedJob.applyUrl);
+        if (linkedInJobSlugKey != null && linkedInJobSlugKey.length > 0) {
+          const linkedInCandidates = this.sqlite.prepare(`
+            select id, fingerprint, apply_url
+            from jobs
+            where lower(company) = lower(?)
+              and lower(title) = lower(?)
+              and lower(location) = lower(?)
+              and lower(apply_url) like '%linkedin.com/jobs/view/%'
+            order by (posted_at is null), posted_at desc, updated_at desc, id desc
+            limit 20
+          `).all(
+            sanitizedJob.company,
+            sanitizedJob.title,
+            sanitizedJob.location
+          ) as Array<{ id: number; fingerprint: string; apply_url: string }>;
+          dedupeCandidate = linkedInCandidates.find((candidate) => extractLinkedInJobSlugKey(candidate.apply_url) === linkedInJobSlugKey);
+        }
+      }
+    } else {
+      dedupeCandidate = this.sqlite.prepare(`
+        select id, fingerprint
+        from jobs
+        where lower(company) = lower(?)
+          and lower(title) = lower(?)
+        order by (posted_at is null), posted_at desc, updated_at desc, id desc
+        limit 1
+      `).get(
+        sanitizedJob.company,
+        sanitizedJob.title
+      ) as { id: number; fingerprint: string } | undefined;
+    }
+    const targetFingerprint = dedupeCandidate?.fingerprint ?? sanitizedJob.fingerprint;
     const insert = this.sqlite.prepare(`
       insert into jobs (
         fingerprint, portal, source_url, apply_url, company, title, location, posted_at, remote_policy,
@@ -227,19 +452,26 @@ export class CareerOpsRepository {
         company = excluded.company,
         title = excluded.title,
         location = excluded.location,
-        posted_at = excluded.posted_at,
-        remote_policy = excluded.remote_policy,
-        compensation_text = excluded.compensation_text,
-        salary_min = excluded.salary_min,
-        salary_max = excluded.salary_max,
-        employment_type = excluded.employment_type,
-        external_id = excluded.external_id,
+        posted_at = case
+          when excluded.posted_at is null then jobs.posted_at
+          when jobs.posted_at is null then excluded.posted_at
+          when julianday(excluded.posted_at) is not null and julianday(jobs.posted_at) is not null and julianday(excluded.posted_at) > julianday(jobs.posted_at) then excluded.posted_at
+          when julianday(excluded.posted_at) is null and julianday(jobs.posted_at) is null and excluded.posted_at > jobs.posted_at then excluded.posted_at
+          when julianday(excluded.posted_at) is not null and julianday(jobs.posted_at) is null then excluded.posted_at
+          else jobs.posted_at
+        end,
+        remote_policy = coalesce(excluded.remote_policy, jobs.remote_policy),
+        compensation_text = coalesce(excluded.compensation_text, jobs.compensation_text),
+        salary_min = coalesce(excluded.salary_min, jobs.salary_min),
+        salary_max = coalesce(excluded.salary_max, jobs.salary_max),
+        employment_type = coalesce(excluded.employment_type, jobs.employment_type),
+        external_id = coalesce(excluded.external_id, jobs.external_id),
         raw_json = excluded.raw_json,
         normalized_json = excluded.normalized_json,
         updated_at = excluded.updated_at
     `);
     insert.run({
-      fingerprint: sanitizedJob.fingerprint,
+      fingerprint: targetFingerprint,
       portal: sanitizedJob.portal,
       source_url: sanitizedJob.sourceUrl,
       apply_url: sanitizedJob.applyUrl,
@@ -262,7 +494,7 @@ export class CareerOpsRepository {
     });
     this.invalidateJobCache();
 
-    const row = this.sqlite.prepare("select id from jobs where fingerprint = ?").get(sanitizedJob.fingerprint) as { id: number };
+    const row = this.sqlite.prepare("select id from jobs where fingerprint = ?").get(targetFingerprint) as { id: number };
     return row.id;
   }
 

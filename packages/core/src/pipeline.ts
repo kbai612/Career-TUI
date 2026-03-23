@@ -45,6 +45,17 @@ const DEFAULT_TARGETED_TITLE_KEYWORDS = [
   "statistician"
 ];
 
+const DEFAULT_EXCLUDED_TITLE_KEYWORDS = [
+  "manager",
+  "director",
+  "lead",
+  "senior data scientist",
+  "senior data engineer",
+  "senior machine learning engineer",
+  "system analyst",
+  "systems analyst"
+];
+
 export class CareerOpsPipeline {
   readonly repo: CareerOpsRepository;
   private readonly rootDir: string;
@@ -125,6 +136,15 @@ export class CareerOpsPipeline {
     const listings = discovered.length > 0
       ? discovered
       : [extractDirectListing(html, sourceUrl, adapter.portal)].filter(Boolean) as JobListing[];
+    const excludedTitleKeywords = Array.isArray(source?.metadata?.excludeTitleKeywords)
+      ? source.metadata.excludeTitleKeywords.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
+      : DEFAULT_EXCLUDED_TITLE_KEYWORDS;
+    const listingsWithoutExcludedTitles = excludedTitleKeywords.length > 0
+      ? listings.filter((listing) => {
+          const titleHaystack = (listing.title ?? "").toLowerCase();
+          return !excludedTitleKeywords.some((keyword) => this.keywordMatches(titleHaystack, keyword));
+        })
+      : listings;
     const defaultRoleKeywords = source?.kind === "greenhouse" || source?.kind === "lever"
       ? DEFAULT_TARGETED_TITLE_KEYWORDS
       : [];
@@ -137,8 +157,8 @@ export class CareerOpsPipeline {
     const maxAgeHours = configuredMaxAgeHours
       ?? ((source?.kind === "greenhouse" || source?.kind === "lever" || source?.kind === "linkedin") ? 24 : undefined);
     const recencyFilteredListings = maxAgeHours == null
-      ? listings
-      : listings.filter((listing) => {
+      ? listingsWithoutExcludedTitles
+      : listingsWithoutExcludedTitles.filter((listing) => {
           if (listing.postedAt == null) {
             return true;
           }
@@ -156,9 +176,9 @@ export class CareerOpsPipeline {
         })
       : recencyFilteredListings;
     const effectiveListings = filteredListings.length === 0
-      && listings.length > 0
+      && listingsWithoutExcludedTitles.length > 0
       && source?.metadata?.discoveryOnly === true
-      ? listings
+      ? listingsWithoutExcludedTitles
       : filteredListings;
     const fallbackLocation = this.inferLocationFromSourceUrl(source?.sourceUrl ?? sourceUrl);
     const enrichedListings = effectiveListings.map((listing) => enrichDiscoveredListing({
@@ -184,9 +204,18 @@ export class CareerOpsPipeline {
     const legacyDefaultSourceUrls = new Set<string>([
       "https://boards.greenhouse.io/embed/job_board?for=stripe",
       "https://jobs.lever.co/shyftlabs?location=Toronto%2C+Ontario",
-      "https://jobs.lever.co/caseware"
+      "https://jobs.lever.co/caseware",
+      "https://www.workopolis.com/jobsearch/find-jobs?ak=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON",
+      "https://ca.indeed.com/jobs?q=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON",
+      "https://www.simplyhired.ca/search?q=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON"
     ]);
     const targetedTitleKeywords = DEFAULT_TARGETED_TITLE_KEYWORDS;
+    const boardRoleSources = [
+      { role: "data-analyst", label: "Data Analyst", query: "Data+Analyst" },
+      { role: "senior-data-analyst", label: "Senior Data Analyst", query: "Senior+Data+Analyst" },
+      { role: "analytics-engineer", label: "Analytics Engineer", query: "Analytics+Engineer" },
+      { role: "data-scientist", label: "Data Scientist", query: "Data+Scientist" }
+    ] as const;
     const levelsRoleSources = [
       {
         name: "Levels Toronto Data Analyst",
@@ -225,6 +254,48 @@ export class CareerOpsPipeline {
         metadata: { role: "data-scientist", discoveryOnly: true, titleKeywords: targetedTitleKeywords }
       }
     ];
+    const workopolisRoleSources = boardRoleSources.map((roleSource) => ({
+      name: `Workopolis Toronto ${roleSource.label} Jobs`,
+      sourceUrl: `https://www.workopolis.com/jobsearch/find-jobs?ak=${roleSource.query}&l=Toronto%2C+ON&d=1`,
+      kind: "generic" as const,
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: {
+        role: roleSource.role,
+        discoveryOnly: true,
+        maxAgeHours: 24,
+        titleKeywords: targetedTitleKeywords
+      }
+    }));
+    const indeedRoleSources = boardRoleSources.map((roleSource) => ({
+      name: `Indeed Canada Toronto ${roleSource.label} Jobs`,
+      sourceUrl: `https://ca.indeed.com/jobs?q=${roleSource.query}&l=Toronto%2C+ON&fromage=1`,
+      kind: "generic" as const,
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: {
+        role: roleSource.role,
+        discoveryOnly: true,
+        maxAgeHours: 24,
+        titleKeywords: targetedTitleKeywords
+      }
+    }));
+    const simplyHiredRoleSources = boardRoleSources.map((roleSource) => ({
+      name: `SimplyHired Canada Toronto ${roleSource.label} Jobs`,
+      sourceUrl: `https://www.simplyhired.ca/search?q=${roleSource.query}&l=Toronto%2C+ON&fdb=1`,
+      kind: "generic" as const,
+      regionId: "toronto-canada",
+      active: true,
+      usePersistentBrowser: false,
+      metadata: {
+        role: roleSource.role,
+        discoveryOnly: true,
+        maxAgeHours: 24,
+        titleKeywords: targetedTitleKeywords
+      }
+    }));
     const isLegacyLevelsTorontoSource = (sourceUrl: string): boolean => {
       try {
         const parsed = new URL(sourceUrl);
@@ -303,45 +374,9 @@ export class CareerOpsPipeline {
         metadata: { role: "data-scientist", discoveryOnly: true, titleKeywords: targetedTitleKeywords }
       },
       ...levelsRoleSources,
-      {
-        name: "Workopolis Toronto Data Jobs",
-        sourceUrl: "https://www.workopolis.com/jobsearch/find-jobs?ak=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON",
-        kind: "generic" as const,
-        regionId: "toronto-canada",
-        active: true,
-        usePersistentBrowser: false,
-        metadata: {
-          role: "data",
-          discoveryOnly: true,
-          titleKeywords: targetedTitleKeywords
-        }
-      },
-      {
-        name: "Indeed Canada Toronto Data Jobs",
-        sourceUrl: "https://ca.indeed.com/jobs?q=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON",
-        kind: "generic" as const,
-        regionId: "toronto-canada",
-        active: true,
-        usePersistentBrowser: false,
-        metadata: {
-          role: "data",
-          discoveryOnly: true,
-          titleKeywords: targetedTitleKeywords
-        }
-      },
-      {
-        name: "SimplyHired Canada Toronto Data Jobs",
-        sourceUrl: "https://www.simplyhired.ca/search?q=Data+Analyst+OR+Senior+Data+Analyst+OR+Analytics+Engineer+OR+Data+Scientist&l=Toronto%2C+ON",
-        kind: "generic" as const,
-        regionId: "toronto-canada",
-        active: true,
-        usePersistentBrowser: false,
-        metadata: {
-          role: "data",
-          discoveryOnly: true,
-          titleKeywords: targetedTitleKeywords
-        }
-      }
+      ...workopolisRoleSources,
+      ...indeedRoleSources,
+      ...simplyHiredRoleSources
     ].map((source) => this.registerSource(source));
   }
 

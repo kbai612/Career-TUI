@@ -175,68 +175,158 @@ const actionOutputEntries: string[] = [
 const actionButtons: any[] = [];
 const ACTION_BUTTON_COLUMNS = 2;
 const ACTION_BUTTON_HEIGHT = 3;
+const DASHBOARD_FOOTER_CONTROLS = "R: REFRESH   L: OPEN LINK   1-7: TABS   8: ACTIONS   X: REJECT   S: SHORTLIST   A: APPLIED   I: INTERVIEW   D: RESEARCH   M:  CONTACT   V: NEXT VIEW   :Q QUIT";
 
 interface ManualAction {
   label: string;
+  buttonLabel?: string;
   hint: string;
   description: string;
   run: () => Promise<string | void> | string | void;
 }
 
 let manualActions: ManualAction[] = [];
+type StoredSource = ReturnType<CareerOpsPipeline["listSources"]>[number];
 
-function truncateWithEllipsis(value: string, maxLength: number): string {
-  if (value.length <= maxLength) {
-    return value;
-  }
-  if (maxLength <= 3) {
-    return value.slice(0, maxLength);
-  }
-  return `${value.slice(0, maxLength - 3)}...`;
+function toTitleCase(value: string): string {
+  return value
+    .split(/[\s_-]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1).toLowerCase()}`)
+    .join(" ");
 }
 
-function sourceWebsiteLabel(sourceUrl: string): string {
+function sourceWebsiteKey(source: StoredSource): string {
+  if (source.kind === "linkedin") {
+    return "linkedin";
+  }
+  if (source.kind === "levels") {
+    return "levels";
+  }
+  if (source.kind === "greenhouse") {
+    return "greenhouse";
+  }
+  if (source.kind === "lever") {
+    return "lever";
+  }
+
   try {
-    const parsed = new URL(sourceUrl);
-    const host = parsed.hostname.replace(/^www\./i, "");
-    const normalizedPath = parsed.pathname.replace(/\/+$/, "");
-    if (normalizedPath.length === 0 || normalizedPath === "/") {
-      return host;
+    const hostname = new URL(source.sourceUrl).hostname.replace(/^www\./i, "").toLowerCase();
+    if (hostname.includes("workopolis")) {
+      return "workopolis";
     }
-    return `${host}${normalizedPath}`;
+    if (hostname.includes("indeed")) {
+      return "indeed";
+    }
+    if (hostname.includes("simplyhired")) {
+      return "simplyhired";
+    }
+    if (hostname.includes("workday")) {
+      return "workday";
+    }
+    if (hostname.includes("ashby")) {
+      return "ashby";
+    }
+    const hostParts = hostname.split(".").filter((part) => part.length > 0);
+    if (hostParts.length >= 2) {
+      return hostParts[hostParts.length - 2] ?? hostname;
+    }
+    return hostname || source.kind;
   } catch {
-    return sourceUrl;
+    return source.kind;
   }
 }
 
-function buildPerSourceCrawlActions(): ManualAction[] {
-  const sources = pipeline
-    .listSources({ activeOnly: true })
-    .sort((left, right) => left.id - right.id);
-  return sources.map((source) => ({
-    label: `Crawl ${truncateWithEllipsis(sourceWebsiteLabel(source.sourceUrl), 34)}`,
-    hint: `${source.kind} | ${source.regionId} | ${truncateWithEllipsis(source.name, 28)}`,
-    description: `Crawl-only sync for source #${source.id} (${source.name}).\n${source.sourceUrl}`,
-    run: () => runWorkerCommandLive(["sync-source", String(source.id), "--skip-evaluate"])
-  }));
+function sourceWebsiteLabel(websiteKey: string): string {
+  switch (websiteKey) {
+    case "linkedin":
+      return "LinkedIn";
+    case "levels":
+      return "Levels";
+    case "greenhouse":
+      return "Greenhouse";
+    case "lever":
+      return "Lever";
+    case "workopolis":
+      return "Workopolis";
+    case "indeed":
+      return "Indeed";
+    case "simplyhired":
+      return "SimplyHired";
+    case "workday":
+      return "Workday";
+    case "ashby":
+      return "Ashby";
+    default:
+      return toTitleCase(websiteKey);
+  }
 }
 
-async function runCrawlActionsByKind(kind: "greenhouse" | "lever"): Promise<string> {
-  const sources = pipeline
-    .listSources({ activeOnly: true })
-    .filter((source) => source.kind === kind)
-    .sort((left, right) => left.id - right.id);
-
-  if (sources.length === 0) {
-    return `No active ${kind} sources found. Register one first, then retry.`;
+function setWebsiteSourcesActive(websiteKey: string, nextActive: boolean): string {
+  const allSources = pipeline.listSources({ activeOnly: false });
+  const websiteSources = allSources.filter((source) => sourceWebsiteKey(source) === websiteKey);
+  if (websiteSources.length === 0) {
+    return `No sources found for ${sourceWebsiteLabel(websiteKey)}.`;
   }
 
-  appendActionOutput(`Found ${sources.length} active ${kind} source(s).`);
-  for (const source of sources) {
-    appendActionOutput(`Testing ${source.name} (#${source.id})`);
-    await runWorkerCommandLive(["sync-source", String(source.id), "--skip-evaluate"]);
+  let changed = 0;
+  for (const source of websiteSources) {
+    if (source.active === nextActive) {
+      continue;
+    }
+    pipeline.registerSource({
+      name: source.name,
+      sourceUrl: source.sourceUrl,
+      kind: source.kind,
+      regionId: source.regionId,
+      active: nextActive,
+      usePersistentBrowser: source.usePersistentBrowser,
+      metadata: source.metadata,
+      lastSyncedAt: source.lastSyncedAt,
+      lastStatus: source.lastStatus
+    });
+    changed += 1;
   }
-  return `Completed ${kind} crawl test for ${sources.length} source(s).`;
+
+  const label = sourceWebsiteLabel(websiteKey);
+  const verb = nextActive ? "enabled" : "disabled";
+  return `${label}: ${verb} ${changed} source(s) (${websiteSources.length - changed} unchanged).`;
+}
+
+function buildSourceToggleActions(): ManualAction[] {
+  const allSources = pipeline.listSources({ activeOnly: false });
+  const groups = new Map<string, StoredSource[]>();
+  for (const source of allSources) {
+    const key = sourceWebsiteKey(source);
+    const existing = groups.get(key);
+    if (existing == null) {
+      groups.set(key, [source]);
+    } else {
+      existing.push(source);
+    }
+  }
+
+  return Array.from(groups.entries())
+    .sort(([leftKey], [rightKey]) => sourceWebsiteLabel(leftKey).localeCompare(sourceWebsiteLabel(rightKey)))
+    .map(([websiteKey, sources]) => {
+      const activeCount = sources.filter((source) => source.active).length;
+      const totalCount = sources.length;
+      const websiteEnabled = activeCount > 0;
+      const nextActive = !websiteEnabled;
+      const nextVerb = nextActive ? "enable" : "disable";
+      const label = sourceWebsiteLabel(websiteKey);
+      const statusWord = websiteEnabled ? "ENABLED" : "DISABLED";
+      const statusTag = websiteEnabled
+        ? "{green-fg}ENABLED{/green-fg}"
+        : "{red-fg}DISABLED{/red-fg}";
+      return {
+        label: `${label} ${statusWord}`,
+        buttonLabel: `${label} ${statusTag}`,
+        hint: `${activeCount}/${totalCount} active | next: ${nextVerb} all`,
+        description: `${label} is currently ${statusWord}.\nCurrently active: ${activeCount}/${totalCount}.\nPress to ${nextVerb} every ${label} source.`,
+        run: () => setWebsiteSourcesActive(websiteKey, nextActive)
+      };
+    });
 }
 
 function currentView() {
@@ -419,18 +509,6 @@ const baseManualActions: ManualAction[] = [
     run: () => runWorkerCommandLive(["sync-sources", "--region", "toronto-canada", "--concurrency", "3", "--evaluate"])
   },
   {
-    label: "Test Greenhouse (Crawl)",
-    hint: "Crawl all active Greenhouse sources",
-    description: "Runs crawl-only sync for every active Greenhouse source, using API-first worker logic with fallback behavior.",
-    run: () => runCrawlActionsByKind("greenhouse")
-  },
-  {
-    label: "Test Lever (Crawl)",
-    hint: "Crawl all active Lever sources",
-    description: "Runs crawl-only sync for every active Lever source, using API-first worker logic with fallback behavior.",
-    run: () => runCrawlActionsByKind("lever")
-  },
-  {
     label: "Clear All Listings",
     hint: "Delete all job rows and artifacts",
     description: "Deletes every listing and related evaluation/resume/application/research/contact record from the local database.",
@@ -471,7 +549,7 @@ const baseManualActions: ManualAction[] = [
 ];
 
 function buildManualActions(): ManualAction[] {
-  return [...baseManualActions, ...buildPerSourceCrawlActions()];
+  return [...baseManualActions, ...buildSourceToggleActions()];
 }
 
 const applicationStates: ApplicationState[] = [
@@ -616,7 +694,7 @@ function initializeActionButtons(): void {
       tags: true,
       shrink: false,
       border: { type: "line" },
-      content: ` ${action.label}\n {gray-fg}${action.hint}{/gray-fg}`,
+      content: ` ${action.buttonLabel ?? action.label}\n {gray-fg}${action.hint}{/gray-fg}`,
       style: {
         fg: "white",
         bg: "black",
@@ -730,9 +808,9 @@ function render(): void {
     header.height = 3;
     actionsPanel.top = 8;
     actionsPanel.height = "100%-9";
-    const tabLine = `${view.tabs.map((item) => `${item.key === tab ? "{blue-fg}" : ""}${item.label} (${item.count})${item.key === tab ? "{/blue-fg}" : ""}`).join("   ")}   Actions (8)`;
+    const tabLine = view.tabs.map((item) => `${item.key === tab ? "{blue-fg}" : ""}${item.label} (${item.count})${item.key === tab ? "{/blue-fg}" : ""}`).join("   ");
     header.setContent(`{cyan-fg}Career pipeline{/cyan-fg}\n${tabLine}`);
-    headerStats.setContent(`${records.length} offers | Avg ${averageScore.toFixed(1)}/5`);
+    headerStats.setContent(`${records.length} Listings | Avg ${averageScore.toFixed(1)}/5`);
     counters.setContent(view.statusLine);
     headerStats.show();
     counters.show();
@@ -767,10 +845,10 @@ function render(): void {
     } else {
       reportViewer.hide();
     }
-    controls.setContent(`[SORT: DATE DESC]   [VIEW: ${detailView.toUpperCase()}]   R REFRESH   L OPEN LINK   1-7 TABS   8 ACTIONS   X REJECT   S SHORTLIST   A APPLIED   I INTERVIEW   D RESEARCH   M CONTACT   V NEXT VIEW   Q QUIT`);
+    controls.setContent(`[SORT: DATE DESC]   [VIEW: ${detailView.toUpperCase()}]`);
     footer.setContent(reportViewerOpen
       ? `${statusMessage}   L OPEN LINK  UP/DOWN SCROLL  PGUP/PGDN PAGE  HOME/END JUMP  ESC CLOSE VIEWER  Q QUIT`
-      : `${statusMessage}   NAV  TABS  ENTER OPEN REPORT  8 ACTIONS  L OPEN LINK  PGUP/PGDN SCROLL  V VIEW  D RESEARCH  M CONTACT  Q QUIT`);
+      : DASHBOARD_FOOTER_CONTROLS);
   }
 
   screen.render();

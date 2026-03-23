@@ -29,7 +29,15 @@ export function canonicalizeUrl(rawUrl: string): string {
   }
 
   const url = new URL(target);
+  const isLinkedInHost = /(^|\.)linkedin\.com$/i.test(url.hostname);
+  const isLinkedInJobView = isLinkedInHost && /^\/jobs\/view\/[^/]+\/?$/i.test(url.pathname);
+
   url.hash = "";
+  if (isLinkedInJobView) {
+    // LinkedIn card links append volatile paging params (`position`, `pageNum`, etc.).
+    // The job-view URL remains valid without any query string.
+    url.search = "";
+  }
   for (const key of Array.from(url.searchParams.keys())) {
     if (TRACKING_PARAMS.has(key) || key.startsWith("utm_")) {
       url.searchParams.delete(key);
