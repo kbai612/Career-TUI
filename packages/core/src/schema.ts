@@ -1,5 +1,5 @@
 ﻿import { z } from "zod";
-import { APPLICATION_STATES, MODE_NAMES, SCORE_DIMENSIONS } from "./types";
+import { APPLICATION_STATES, MODE_NAMES, RESUME_FEEDBACK_OUTCOMES, SCORE_DIMENSIONS } from "./types";
 
 export const scoreDimensionSchema = z.enum(SCORE_DIMENSIONS);
 export const applicationStateSchema = z.enum(APPLICATION_STATES);
@@ -220,6 +220,42 @@ export const runSummarySchema = z.object({
   updated: z.number(),
   errors: z.array(z.string()),
   jobIds: z.array(z.number()).optional()
+});
+
+export const excludedCompanySchema = z.object({
+  id: z.number(),
+  company: z.string(),
+  companyKey: z.string(),
+  reason: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const applicationAnswerMemorySchema = z.object({
+  id: z.number(),
+  questionKey: z.string(),
+  answer: z.string(),
+  tags: z.array(z.string()),
+  usageCount: z.number().int().min(0),
+  lastUsedAt: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const resumeFeedbackOutcomeSchema = z.enum(RESUME_FEEDBACK_OUTCOMES);
+
+export const resumeVariantFeedbackSchema = z.object({
+  id: z.number(),
+  jobId: z.number(),
+  outcome: resumeFeedbackOutcomeSchema,
+  score: z.number().optional(),
+  notes: z.string().optional(),
+  company: z.string(),
+  title: z.string(),
+  resumeKeywords: z.array(z.string()),
+  resumeGeneratedAt: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string()
 });
 
 export const agentSchemas = {

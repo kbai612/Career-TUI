@@ -674,6 +674,116 @@ describe("pipeline", () => {
     expect(records[0]?.job.applyUrl).toBe("https://ca.linkedin.com/jobs/view/credit-analyst-business-banking-at-bmo-4385521737");
   });
 
+  it("excludes configured companies during crawl ingestion", async () => {
+    pipeline.excludeCompany("Acme Analytics");
+    const html = `
+      <ul>
+        <li>
+          <div data-testid="searchSerpJob">
+            <a href="/jobsearch/viewjob/acme-1">Open</a>
+            <h2 data-testid="searchSerpJobTitle">Data Analyst</h2>
+            <span data-testid="companyName">Acme Analytics</span>
+            <span data-testid="searchSerpJobLocation">Toronto, ON</span>
+          </div>
+        </li>
+        <li>
+          <div data-testid="searchSerpJob">
+            <a href="/jobsearch/viewjob/contoso-1">Open</a>
+            <h2 data-testid="searchSerpJobTitle">Data Scientist</h2>
+            <span data-testid="companyName">Contoso Labs</span>
+            <span data-testid="searchSerpJobLocation">Toronto, ON</span>
+          </div>
+        </li>
+      </ul>
+    `;
+
+    const summary = await pipeline.scanSource(
+      "https://www.workopolis.com/jobsearch/find-jobs?q=data",
+      html,
+      { persistRun: false }
+    );
+    const records = pipeline.repo.listJobs();
+
+    expect(summary.processed).toBe(1);
+    expect(records).toHaveLength(1);
+    expect(records[0]?.job.company).toBe("Contoso Labs");
+  });
+
+  it("reuses application-answer memory in drafts and tracks usage", async () => {
+    const [jobId] = pipeline.seedDemoJobs([
+      {
+        portal: "greenhouse",
+        sourceUrl: "https://boards.greenhouse.io/example",
+        applyUrl: "https://boards.greenhouse.io/example/jobs/2000",
+        company: "Memory Check Inc",
+        title: "Data Analyst",
+        location: "Toronto, Ontario, Canada",
+        postedAt: new Date().toISOString(),
+        description: "Draft memory test listing."
+      }
+    ]);
+
+    pipeline.rememberApplicationAnswer("why are you interested in this role", "I enjoy shipping analytics that drive product decisions.");
+    pipeline.rememberApplicationAnswer("full_name", "Memory Override Name");
+
+    await pipeline.draftApplication(jobId);
+
+    const draft = pipeline.repo.getJobRecord(jobId).application;
+    expect(draft).not.toBeNull();
+    expect(draft?.answers["why are you interested in this role"]).toBe("I enjoy shipping analytics that drive product decisions.");
+    expect(draft?.answers.full_name).toBe("Memory Override Name");
+    expect(draft?.roleSpecificAnswers.some((answer) => answer.includes("why are you interested in this role"))).toBe(true);
+
+    const memoryEntries = pipeline.listApplicationAnswerMemory();
+    const whyEntry = memoryEntries.find((entry) => entry.questionKey === "why are you interested in this role");
+    expect(whyEntry).toBeDefined();
+    expect(whyEntry?.usageCount).toBeGreaterThanOrEqual(1);
+    expect(whyEntry?.lastUsedAt).toBeDefined();
+  });
+
+  it("records resume variant performance feedback and exposes summaries", async () => {
+    const previousSkipPdf = process.env.CAREER_OPS_SKIP_PDF_RENDER;
+    process.env.CAREER_OPS_SKIP_PDF_RENDER = "1";
+    try {
+      const [jobId] = pipeline.seedDemoJobs([
+        {
+          portal: "greenhouse",
+          sourceUrl: "https://boards.greenhouse.io/example",
+          applyUrl: "https://boards.greenhouse.io/example/jobs/3000",
+          company: "Feedback Signals Inc",
+          title: "Data Scientist",
+          location: "Toronto, Ontario, Canada",
+          postedAt: new Date().toISOString(),
+          description: "Resume feedback test listing."
+        }
+      ]);
+
+      await pipeline.generateResume(jobId);
+      await pipeline.recordResumeVariantFeedback(jobId, {
+        outcome: "interview",
+        score: 4.4,
+        notes: "Strong alignment with the hiring manager's expectations."
+      });
+
+      const feedback = pipeline.listResumeVariantFeedback(10);
+      const saved = feedback.find((entry) => entry.jobId === jobId);
+      expect(saved).toBeDefined();
+      expect(saved?.outcome).toBe("interview");
+      expect(saved?.score).toBe(4.4);
+
+      const summary = pipeline.summarizeResumeVariantFeedback();
+      expect(summary.totalFeedback).toBeGreaterThanOrEqual(1);
+      expect(summary.byOutcome.interview).toBeGreaterThanOrEqual(1);
+      expect(summary.topKeywordSignals.length).toBeGreaterThan(0);
+    } finally {
+      if (previousSkipPdf == null) {
+        delete process.env.CAREER_OPS_SKIP_PDF_RENDER;
+      } else {
+        process.env.CAREER_OPS_SKIP_PDF_RENDER = previousSkipPdf;
+      }
+    }
+  });
+
   it("clears all listings and listing artifacts", async () => {
     const [jobId] = pipeline.seedDemoJobs([
       {

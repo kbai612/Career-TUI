@@ -62,6 +62,16 @@ export const SOURCE_KINDS = [
 
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 
+export const RESUME_FEEDBACK_OUTCOMES = [
+  "no_response",
+  "rejected",
+  "screen",
+  "interview",
+  "offer"
+] as const;
+
+export type ResumeFeedbackOutcome = (typeof RESUME_FEEDBACK_OUTCOMES)[number];
+
 export interface JobListing {
   id?: number;
   portal: string;
@@ -115,6 +125,57 @@ export interface SourceSyncRun {
   errors: string[];
   status: "success" | "error";
   jobIds: number[];
+}
+
+export interface ExcludedCompany {
+  id: number;
+  company: string;
+  companyKey: string;
+  reason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApplicationAnswerMemoryEntry {
+  id: number;
+  questionKey: string;
+  answer: string;
+  tags: string[];
+  usageCount: number;
+  lastUsedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResumeVariantFeedbackInput {
+  jobId: number;
+  outcome: ResumeFeedbackOutcome;
+  score?: number;
+  notes?: string;
+}
+
+export interface ResumeVariantFeedbackRecord extends ResumeVariantFeedbackInput {
+  id: number;
+  company: string;
+  title: string;
+  resumeKeywords: string[];
+  resumeGeneratedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResumeKeywordFeedbackSignal {
+  keyword: string;
+  feedbackCount: number;
+  positiveRate: number;
+  averageScore?: number;
+}
+
+export interface ResumeVariantFeedbackSummary {
+  totalFeedback: number;
+  byOutcome: Record<ResumeFeedbackOutcome, number>;
+  averageScore?: number;
+  topKeywordSignals: ResumeKeywordFeedbackSignal[];
 }
 
 export interface RegionRule {

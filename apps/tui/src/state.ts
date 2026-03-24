@@ -12,22 +12,24 @@ export interface DashboardView {
   visibleJobIds: number[];
 }
 
-export const DASHBOARD_TABLE_HEADERS = ["Score", "Grade", "Company", "Title", "Posted", "Status", "Comp"] as const;
+export const DASHBOARD_TABLE_HEADERS = ["Score", "Company", "Title", "Posted", "Status", "Comp"] as const;
 
 const TABLE_FLOOR_WIDTHS = DASHBOARD_TABLE_HEADERS.map((header) => header.length);
-const TABLE_MIN_WIDTHS = [3, 3, 8, 16, 10, 12, 8];
-const TABLE_IDEAL_WIDTHS = [3, 3, 12, 24, 10, 12, 12];
-const TABLE_MAX_WIDTHS = [3, 3, 18, 38, 10, 14, 18];
-const TABLE_GROWTH_ORDER = [3, 2, 6, 5];
-const TABLE_SHRINK_ORDER = [6, 2, 3, 5, 4];
+const TABLE_MIN_WIDTHS = [3, 8, 16, 10, 12, 8];
+const TABLE_IDEAL_WIDTHS = [3, 12, 24, 10, 12, 12];
+const TABLE_MAX_WIDTHS = [3, 18, 38, 10, 14, 18];
+const TABLE_GROWTH_ORDER = [2, 1, 5, 4];
+const TABLE_SHRINK_ORDER = [5, 1, 2, 4, 3];
 const TRUNCATION_MARKER = "...";
+const BLESSED_TAG_PATTERN = /\{\/?[a-z0-9_-]+\}/gi;
 
 function sumWidths(widths: number[]): number {
   return widths.reduce((total, width) => total + width, 0);
 }
 
 function textWidth(value: string): number {
-  return Array.from(value).length;
+  const plainText = value.replace(BLESSED_TAG_PATTERN, "");
+  return Array.from(plainText).length;
 }
 
 function takeText(value: string, width: number): string {
@@ -141,6 +143,29 @@ function formatPostedDate(postedAt: string | undefined): string {
     return "-";
   }
   return date.toISOString().slice(0, 10);
+}
+
+function scoreColor(score: number): "green" | "cyan" | "yellow" | "magenta" | "red" {
+  if (score >= 4.5) {
+    return "green";
+  }
+  if (score >= 3.5) {
+    return "cyan";
+  }
+  if (score >= 2.5) {
+    return "yellow";
+  }
+  if (score >= 1.5) {
+    return "magenta";
+  }
+  return "red";
+}
+
+function formatScore(score: number | undefined): string {
+  const value = score ?? 0;
+  const color = scoreColor(value);
+  const formatted = value.toFixed(1);
+  return `{${color}-fg}${formatted}{/${color}-fg}`;
 }
 
 function buildDetailLines(record: JobRecordWithArtifacts | null, detailView: DetailViewKey): { title: string; lines: string[] } {
@@ -295,8 +320,7 @@ export function buildDashboardView(records: JobRecordWithArtifacts[], selectedIn
   const fallbackRecords = tab === "no_apply" ? noApplyRecords : tab === "all" ? allRecords : activeRecords;
   const current = filtered[Math.max(0, Math.min(selectedIndex, filtered.length - 1))] ?? fallbackRecords[0] ?? null;
   const tableRows = filtered.map((record) => [
-    (record.evaluation?.totalScore ?? 0).toFixed(1),
-    record.evaluation?.grade ?? "-",
+    formatScore(record.evaluation?.totalScore),
     record.job.company,
     record.job.title,
     formatPostedDate(record.job.postedAt),

@@ -21,12 +21,12 @@ const screen = blessed.screen({
 const header = blessed.box({ top: 0, left: 0, width: "100%", height: 3, tags: true, style: { fg: "white" } });
 const headerStats = blessed.box({ top: 0, right: 1, width: "40%", height: 1, tags: true, align: "right", style: { fg: "white" } });
 const counters = blessed.box({ top: 3, left: 0, width: "100%", height: 3, tags: true, style: { fg: "white" } });
-const controls = blessed.box({ top: 6, left: 0, width: "100%", height: 2, tags: true, style: { fg: "white" } });
+const controls = blessed.box({ top: 6, left: 0, width: "100%", height: 1, tags: true, style: { fg: "white" } });
 const table = blessed.listtable({
-  top: 8,
+  top: 7,
   left: 0,
   width: "100%",
-  height: "65%-8",
+  height: "65%-7",
   border: { type: "line" },
   align: "left",
   tags: true,
@@ -164,6 +164,13 @@ let actionsViewOpen = false;
 let actionsOutputScrollOffset = 0;
 let actionInProgress = false;
 let actionsFocusIndex = 0;
+let syncingTableSelection = false;
+let refreshInProgress = false;
+let refreshAnimationIndex = 0;
+let refreshAnimationTimer: NodeJS.Timeout | null = null;
+let refreshAnimationTickCount = 0;
+
+const REFRESH_DOT_FRAMES = [".", "..", "...", " "] as const;
 
 function actionTimestamp(): string {
   return new Date().toISOString();
@@ -175,7 +182,9 @@ const actionOutputEntries: string[] = [
 const actionButtons: any[] = [];
 const ACTION_BUTTON_COLUMNS = 2;
 const ACTION_BUTTON_HEIGHT = 3;
-const DASHBOARD_FOOTER_CONTROLS = "R: REFRESH   L: OPEN LINK   1-7: TABS   8: ACTIONS   X: REJECT   S: SHORTLIST   A: APPLIED   I: INTERVIEW   D: RESEARCH   M:  CONTACT   V: NEXT VIEW   :Q QUIT";
+const DASHBOARD_FOOTER_CONTROLS = "R: REFRESH   L: OPEN LINK   LEFT/RIGHT: TABS   8: ACTIONS   X: REJECT   S: SHORTLIST   A: APPLIED   I: INTERVIEW   D: RESEARCH   M: CONTACT   V: NEXT VIEW   :Q QUIT";
+const REFRESH_ANIMATION_MIN_MS = 700;
+const TAB_ORDER: TabKey[] = ["all", "evaluated", "shortlisted", "applied", "interview", "top", "no_apply"];
 
 interface ManualAction {
   label: string;
@@ -358,6 +367,49 @@ function setStatusMessage(message: string): void {
   statusMessage = message.toUpperCase();
 }
 
+function startRefreshAnimation(): void {
+  if (refreshAnimationTimer != null) {
+    clearInterval(refreshAnimationTimer);
+  }
+  refreshInProgress = true;
+  refreshAnimationIndex = 0;
+  refreshAnimationTickCount = 0;
+  refreshAnimationTimer = setInterval(() => {
+    refreshAnimationIndex = (refreshAnimationIndex + 1) % REFRESH_DOT_FRAMES.length;
+    refreshAnimationTickCount += 1;
+    render();
+  }, 220);
+}
+
+function stopRefreshAnimation(): void {
+  if (refreshAnimationTimer != null) {
+    clearInterval(refreshAnimationTimer);
+    refreshAnimationTimer = null;
+  }
+  refreshInProgress = false;
+  refreshAnimationIndex = 0;
+  refreshAnimationTickCount = 0;
+}
+
+function getActiveStatusMessage(): string {
+  if (!refreshInProgress) {
+    return statusMessage;
+  }
+  return `REFRESHING${REFRESH_DOT_FRAMES[refreshAnimationIndex]}`;
+}
+
+async function waitForRefreshAnimationProgress(startedAt: number): Promise<void> {
+  while (true) {
+    const elapsed = Date.now() - startedAt;
+    const hasMinimumDuration = elapsed >= REFRESH_ANIMATION_MIN_MS;
+    const hasMinimumFrames = refreshAnimationTickCount >= 3;
+    if (hasMinimumDuration && hasMinimumFrames) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 40));
+  }
+}
+
 function syncActionsOutputBox(): void {
   actionsOutput.setContent(actionOutputEntries.join("\n\n"));
   actionsOutputScrollOffset = clampScrollOffset(actionsOutput, actionsOutputScrollOffset);
@@ -531,6 +583,24 @@ const baseManualActions: ManualAction[] = [
     }
   },
   {
+    label: "List Excluded Companies",
+    hint: "Show globally excluded company filters",
+    description: "Prints all excluded companies that will be filtered out during crawl ingestion.",
+    run: () => runWorkerCommandLive(["list-excluded-companies"])
+  },
+  {
+    label: "List Answer Memory",
+    hint: "Show reusable application answers",
+    description: "Prints reusable question/answer memory entries and usage counts.",
+    run: () => runWorkerCommandLive(["list-answer-memory"])
+  },
+  {
+    label: "Resume Feedback Summary",
+    hint: "Show resume variant performance stats",
+    description: "Prints aggregate outcome and keyword-level signal summary from stored resume feedback.",
+    run: () => runWorkerCommandLive(["resume-feedback-summary"])
+  },
+  {
     label: "Autoapply Shortlist",
     hint: "Bulk prefill shortlist jobs with uploaded resume",
     description: "Runs worker autoapply-shortlist. Set CAREER_OPS_UPLOADED_RESUME (and optional CAREER_OPS_AUTOAPPLY_INFO_JSON / CAREER_OPS_AUTOAPPLY_SUBMIT=1) before running. LinkedIn-hosted apply URLs are skipped.",
@@ -699,8 +769,8 @@ function initializeActionButtons(): void {
         fg: "white",
         bg: "black",
         border: { fg: "white" },
-        focus: { bg: "blue", border: { fg: "cyan" } },
-        hover: { bg: "blue", border: { fg: "cyan" } }
+        focus: { fg: "black", bg: "lightgray", border: { fg: "cyan" } },
+        hover: { fg: "black", bg: "lightgray", border: { fg: "cyan" } }
       }
     });
     button.on("press", () => {
@@ -767,10 +837,22 @@ function withSelectedJob(action: (jobId: number) => void): void {
   }
 }
 
-function refreshDashboard(): void {
-  repository.refreshJobs();
-  setStatusMessage("Refreshed");
+async function refreshDashboard(): Promise<void> {
+  if (refreshInProgress) {
+    return;
+  }
+  const startedAt = Date.now();
+  startRefreshAnimation();
   render();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  try {
+    repository.refreshJobs();
+    await waitForRefreshAnimationProgress(startedAt);
+    setStatusMessage("Refreshed");
+  } finally {
+    stopRefreshAnimation();
+    render();
+  }
 }
 
 async function withSelectedJobAsync(action: (jobId: number) => Promise<void>): Promise<void> {
@@ -786,6 +868,17 @@ function cycleDetailView(): void {
   detailView = detailViews[(currentIndex + 1) % detailViews.length];
   resetDetailScroll();
   resetReportViewerScroll();
+}
+
+function cycleTab(delta: -1 | 1): void {
+  const currentIndex = TAB_ORDER.indexOf(tab);
+  const safeCurrentIndex = currentIndex >= 0 ? currentIndex : 0;
+  const nextIndex = (safeCurrentIndex + delta + TAB_ORDER.length) % TAB_ORDER.length;
+  tab = TAB_ORDER[nextIndex];
+  selectedIndex = 0;
+  resetDetailScroll();
+  resetReportViewerScroll();
+  render();
 }
 
 function render(): void {
@@ -808,7 +901,9 @@ function render(): void {
     header.height = 3;
     actionsPanel.top = 8;
     actionsPanel.height = "100%-9";
-    const tabLine = view.tabs.map((item) => `${item.key === tab ? "{blue-fg}" : ""}${item.label} (${item.count})${item.key === tab ? "{/blue-fg}" : ""}`).join("   ");
+    const tabLine = view.tabs
+      .map((item) => `${item.key === tab ? "{blue-fg}" : ""}${item.label} (${item.count})${item.key === tab ? "{/blue-fg}" : ""}`)
+      .join("   ");
     header.setContent(`{cyan-fg}Career pipeline{/cyan-fg}\n${tabLine}`);
     headerStats.setContent(`${records.length} Listings | Avg ${averageScore.toFixed(1)}/5`);
     counters.setContent(view.statusLine);
@@ -818,7 +913,15 @@ function render(): void {
   }
   table.setData(buildDashboardTableData(view.tableRows, getTableWidth()));
   if (view.tableRows.length > 0) {
+    syncingTableSelection = true;
     table.select(Math.min(selectedIndex + 1, view.tableRows.length));
+    syncingTableSelection = false;
+    const currentTableScroll = table.getScroll();
+    const maxTableScroll = Math.max(0, table.getScrollHeight() - table.height);
+    const clampedTableScroll = Math.max(0, Math.min(currentTableScroll, maxTableScroll));
+    table.setScroll(selectedIndex === 0 ? 0 : clampedTableScroll);
+  } else {
+    table.setScroll(0);
   }
   detail.setLabel(` ${view.detailTitle.toUpperCase()} `);
   detail.setContent(view.detailLines.join("\n"));
@@ -846,17 +949,20 @@ function render(): void {
       reportViewer.hide();
     }
     controls.setContent(`[SORT: DATE DESC]   [VIEW: ${detailView.toUpperCase()}]`);
+    const activeStatusMessage = getActiveStatusMessage();
+    const dashboardFooterContent = refreshInProgress
+      ? `${activeStatusMessage}   ${DASHBOARD_FOOTER_CONTROLS}`
+      : DASHBOARD_FOOTER_CONTROLS;
     footer.setContent(reportViewerOpen
-      ? `${statusMessage}   L OPEN LINK  UP/DOWN SCROLL  PGUP/PGDN PAGE  HOME/END JUMP  ESC CLOSE VIEWER  Q QUIT`
-      : DASHBOARD_FOOTER_CONTROLS);
+      ? `${activeStatusMessage}   L OPEN LINK  UP/DOWN SCROLL  PGUP/PGDN PAGE  HOME/END JUMP  ESC CLOSE VIEWER  Q QUIT`
+      : dashboardFooterContent);
   }
 
   screen.render();
 }
 
-reloadActionButtons();
-
 screen.key(["q", "C-c"], () => {
+  stopRefreshAnimation();
   pipeline.dispose();
   return process.exit(0);
 });
@@ -870,6 +976,7 @@ screen.key(["escape"], () => {
     closeReportViewer();
     return;
   }
+  stopRefreshAnimation();
   pipeline.dispose();
   return process.exit(0);
 });
@@ -883,7 +990,7 @@ screen.key(["8"], () => {
 });
 
 screen.key(["r", "R"], () => {
-  refreshDashboard();
+  void refreshDashboard();
 });
 
 screen.key(["v"], () => {
@@ -904,63 +1011,6 @@ screen.key(["o", "enter"], () => {
     return;
   }
   openReportViewer();
-});
-
-screen.key(["1"], () => {
-  if (actionsViewOpen) {
-    closeActionsView();
-  }
-  tab = "all";
-  selectedIndex = 0;
-  render();
-});
-screen.key(["2"], () => {
-  if (actionsViewOpen) {
-    closeActionsView();
-  }
-  tab = "evaluated";
-  selectedIndex = 0;
-  render();
-});
-screen.key(["3"], () => {
-  if (actionsViewOpen) {
-    closeActionsView();
-  }
-  tab = "shortlisted";
-  selectedIndex = 0;
-  render();
-});
-screen.key(["4"], () => {
-  if (actionsViewOpen) {
-    closeActionsView();
-  }
-  tab = "applied";
-  selectedIndex = 0;
-  render();
-});
-screen.key(["5"], () => {
-  if (actionsViewOpen) {
-    closeActionsView();
-  }
-  tab = "interview";
-  selectedIndex = 0;
-  render();
-});
-screen.key(["6"], () => {
-  if (actionsViewOpen) {
-    closeActionsView();
-  }
-  tab = "top";
-  selectedIndex = 0;
-  render();
-});
-screen.key(["7"], () => {
-  if (actionsViewOpen) {
-    closeActionsView();
-  }
-  tab = "no_apply";
-  selectedIndex = 0;
-  render();
 });
 
 screen.key(["pageup"], () => {
@@ -1063,18 +1113,33 @@ screen.key(["up", "k"], () => {
   render();
 });
 
-screen.key(["left", "h"], () => {
+screen.key(["left"], () => {
+  if (actionsViewOpen) {
+    focusManualAction(actionsFocusIndex - 1);
+    return;
+  }
+  if (reportViewerOpen) {
+    return;
+  }
+  cycleTab(-1);
+});
+
+screen.key(["right"], () => {
+  if (actionsViewOpen) {
+    focusManualAction(actionsFocusIndex + 1);
+    return;
+  }
+  if (reportViewerOpen) {
+    return;
+  }
+  cycleTab(1);
+});
+
+screen.key(["h"], () => {
   if (!actionsViewOpen) {
     return;
   }
   focusManualAction(actionsFocusIndex - 1);
-});
-
-screen.key(["right"], () => {
-  if (!actionsViewOpen) {
-    return;
-  }
-  focusManualAction(actionsFocusIndex + 1);
 });
 
 screen.key(["x"], () => {
@@ -1087,10 +1152,12 @@ screen.key(["x"], () => {
       repository.updateJobStatus(jobId, "rejected");
       setStatusMessage(`Rejected ${record.job.company}`);
       resetDetailScroll();
+      table.focus();
       render();
       return;
     }
     setStatusMessage(`Cannot reject from ${record.job.status}`);
+    table.focus();
     render();
   });
 });
@@ -1105,10 +1172,12 @@ screen.key(["s"], () => {
       repository.updateJobStatus(jobId, "shortlisted");
       setStatusMessage(`Shortlisted ${record.job.company}`);
       resetDetailScroll();
+      table.focus();
       render();
       return;
     }
     setStatusMessage(`Cannot shortlist from ${record.job.status}`);
+    table.focus();
     render();
   });
 });
@@ -1123,6 +1192,7 @@ screen.key(["a", "A"], () => {
     if (result.ok) {
       resetDetailScroll();
     }
+    table.focus();
     render();
   });
 });
@@ -1137,10 +1207,12 @@ screen.key(["i"], () => {
       repository.updateJobStatus(jobId, "blocked");
       setStatusMessage(`Marked ${record.job.company} as interview`);
       resetDetailScroll();
+      table.focus();
       render();
       return;
     }
     setStatusMessage(`Cannot move to interview from ${record.job.status}`);
+    table.focus();
     render();
   });
 });
@@ -1261,6 +1333,9 @@ actionsOutput.on("click", () => {
 
 table.on("select", (_item: unknown, index: number) => {
   if (actionsViewOpen) {
+    return;
+  }
+  if (syncingTableSelection) {
     return;
   }
   selectedIndex = Math.max(0, index - 1);

@@ -20,13 +20,18 @@ import { buildApplicationDraft } from "./application";
 import { buildResumeVariant, renderResumePdf } from "./resume";
 import { isRichEvaluationReport } from "./scoring";
 import type {
+  ApplicationAnswerMemoryEntry,
   CareerSource,
   ContactDraft,
   DeepResearchReport,
+  ExcludedCompany,
   EvaluationReport,
   JobListing,
   OfferComparison,
   RegionRule,
+  ResumeVariantFeedbackInput,
+  ResumeVariantFeedbackRecord,
+  ResumeVariantFeedbackSummary,
   RunSummary,
   SourceSyncRun,
   TrainingAssessment
@@ -102,6 +107,31 @@ export class CareerOpsPipeline {
     return pattern.test(haystack);
   }
 
+  private normalizeCompanyKey(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  private matchesExcludedCompany(companyKey: string, excludedKey: string): boolean {
+    if (companyKey.length === 0 || excludedKey.length === 0) {
+      return false;
+    }
+    if (companyKey === excludedKey) {
+      return true;
+    }
+    if (companyKey.startsWith(`${excludedKey} `)) {
+      return true;
+    }
+    if (companyKey.endsWith(` ${excludedKey}`)) {
+      return true;
+    }
+    return companyKey.includes(` ${excludedKey} `);
+  }
+
   private inferLocationFromSourceUrl(sourceUrl: string): string | undefined {
     try {
       const parsed = new URL(sourceUrl);
@@ -136,15 +166,32 @@ export class CareerOpsPipeline {
     const listings = discovered.length > 0
       ? discovered
       : [extractDirectListing(html, sourceUrl, adapter.portal)].filter(Boolean) as JobListing[];
+    const globalExcludedCompanyKeys = this.repo
+      .listExcludedCompanies()
+      .map((entry) => entry.companyKey)
+      .filter((entry) => entry.length > 0);
+    const sourceExcludedCompanyKeys = Array.isArray(source?.metadata?.excludeCompanies)
+      ? source.metadata.excludeCompanies
+        .filter((company): company is string => typeof company === "string" && company.trim().length > 0)
+        .map((company) => this.normalizeCompanyKey(company))
+        .filter((company) => company.length > 0)
+      : [];
+    const excludedCompanyKeys = Array.from(new Set([...globalExcludedCompanyKeys, ...sourceExcludedCompanyKeys]));
+    const listingsWithoutExcludedCompanies = excludedCompanyKeys.length > 0
+      ? listings.filter((listing) => {
+          const listingCompanyKey = this.normalizeCompanyKey(listing.company ?? "");
+          return !excludedCompanyKeys.some((excludedKey) => this.matchesExcludedCompany(listingCompanyKey, excludedKey));
+        })
+      : listings;
     const excludedTitleKeywords = Array.isArray(source?.metadata?.excludeTitleKeywords)
       ? source.metadata.excludeTitleKeywords.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
       : DEFAULT_EXCLUDED_TITLE_KEYWORDS;
     const listingsWithoutExcludedTitles = excludedTitleKeywords.length > 0
-      ? listings.filter((listing) => {
+      ? listingsWithoutExcludedCompanies.filter((listing) => {
           const titleHaystack = (listing.title ?? "").toLowerCase();
           return !excludedTitleKeywords.some((keyword) => this.keywordMatches(titleHaystack, keyword));
         })
-      : listings;
+      : listingsWithoutExcludedCompanies;
     const defaultRoleKeywords = source?.kind === "greenhouse" || source?.kind === "lever"
       ? DEFAULT_TARGETED_TITLE_KEYWORDS
       : [];
@@ -176,9 +223,9 @@ export class CareerOpsPipeline {
         })
       : recencyFilteredListings;
     const effectiveListings = filteredListings.length === 0
-      && listingsWithoutExcludedTitles.length > 0
+      && recencyFilteredListings.length > 0
       && source?.metadata?.discoveryOnly === true
-      ? listingsWithoutExcludedTitles
+      ? recencyFilteredListings
       : filteredListings;
     const fallbackLocation = this.inferLocationFromSourceUrl(source?.sourceUrl ?? sourceUrl);
     const enrichedListings = effectiveListings.map((listing) => enrichDiscoveredListing({
@@ -198,6 +245,51 @@ export class CareerOpsPipeline {
 
   registerSource(source: CareerSource): number {
     return this.repo.upsertCareerSource(source);
+  }
+
+  excludeCompany(company: string, reason?: string): number {
+    return this.repo.upsertExcludedCompany(company, reason);
+  }
+
+  includeCompany(company: string): boolean {
+    return this.repo.removeExcludedCompany(company);
+  }
+
+  listExcludedCompanies(): ExcludedCompany[] {
+    return this.repo.listExcludedCompanies();
+  }
+
+  rememberApplicationAnswer(questionKey: string, answer: string, tags: string[] = []): number {
+    return this.repo.upsertApplicationAnswerMemory(questionKey, answer, tags);
+  }
+
+  forgetApplicationAnswer(questionKey: string): boolean {
+    return this.repo.removeApplicationAnswerMemory(questionKey);
+  }
+
+  listApplicationAnswerMemory(): ApplicationAnswerMemoryEntry[] {
+    return this.repo.listApplicationAnswerMemory();
+  }
+
+  async recordResumeVariantFeedback(jobId: number, feedback: Omit<ResumeVariantFeedbackInput, "jobId">): Promise<void> {
+    const record = this.repo.getJobRecord(jobId);
+    if (record.resume == null) {
+      await this.generateResume(jobId);
+    }
+    this.repo.saveResumeVariantFeedback({
+      jobId,
+      outcome: feedback.outcome,
+      score: feedback.score,
+      notes: feedback.notes
+    });
+  }
+
+  listResumeVariantFeedback(limit = 100): ResumeVariantFeedbackRecord[] {
+    return this.repo.listResumeVariantFeedback(limit);
+  }
+
+  summarizeResumeVariantFeedback(): ResumeVariantFeedbackSummary {
+    return this.repo.summarizeResumeVariantFeedback();
   }
 
   seedTorontoDiscoverySources(): number[] {
@@ -561,9 +653,11 @@ export class CareerOpsPipeline {
     const record = this.repo.getJobRecord(jobId);
     const report = record.evaluation ?? await this.evaluateJob(jobId);
     const normalized = JSON.parse(record.job.normalizedJson) as JobListing;
-    const draft = buildApplicationDraft(jobId, normalized, report, profile);
+    const memoryAnswers = this.repo.getApplicationAnswerMemoryMap();
+    const draft = buildApplicationDraft(jobId, normalized, report, profile, memoryAnswers);
     applicationDraftSchema.parse(draft);
     this.repo.saveApplicationDraft(jobId, draft);
+    this.repo.markApplicationAnswerMemoryUsed(Object.keys(memoryAnswers));
     const refreshed = this.repo.getJobRecord(jobId);
     if (refreshed.job.status === "resume_ready") {
       this.repo.updateJobStatus(jobId, "ready_to_apply");

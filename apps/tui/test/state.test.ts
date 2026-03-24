@@ -99,8 +99,9 @@ describe("buildDashboardView", () => {
       "Top >=4",
       "Do not apply"
     ]);
-    expect(view.tableRows[0][2]).toBe("n8n");
-    expect(view.tableRows[0][4]).toBe("2026-03-17");
+    expect(view.tableRows[0][0]).toBe("{cyan-fg}4.2{/cyan-fg}");
+    expect(view.tableRows[0][1]).toBe("n8n");
+    expect(view.tableRows[0][3]).toBe("2026-03-17");
     expect(view.detailLines[0]).toContain("Archetype");
   });
 
@@ -108,7 +109,6 @@ describe("buildDashboardView", () => {
     const tableData = buildDashboardTableData([
       [
         "0.0",
-        "-",
         "Martin-Brower of Canada Co.",
         "Business Intelligence Analyst and Data Visualization Specialist",
         "2026-03-18",
@@ -121,11 +121,11 @@ describe("buildDashboardView", () => {
     const renderedWidth = columnWidths.reduce((total, width) => total + width, 0) + tableData[0].length + 1;
 
     expect(renderedWidth).toBeLessThanOrEqual(72);
+    expect(tableData[1][1]).toContain("...");
     expect(tableData[1][2]).toContain("...");
-    expect(tableData[1][3]).toContain("...");
-    expect(tableData[1][4]).toBe("2026-03-18");
-    expect(tableData[1][5]).toContain("...");
-    expect(tableData[1][6].length).toBeGreaterThan(0);
+    expect(tableData[1][3]).toBe("2026-03-18");
+    expect(tableData[1][4]).toContain("...");
+    expect(tableData[1][5].length).toBeGreaterThan(0);
   });
 
   it("sorts rows by newest posted date", () => {
@@ -179,8 +179,8 @@ describe("buildDashboardView", () => {
       }
     ]);
 
-    expect(view.tableRows[0][2]).toBe("New Co");
-    expect(view.tableRows[1][2]).toBe("Old Co");
+    expect(view.tableRows[0][1]).toBe("New Co");
+    expect(view.tableRows[1][1]).toBe("Old Co");
     expect(view.visibleJobIds[0]).toBe(2);
     expect(view.visibleJobIds[1]).toBe(1);
   });
@@ -235,7 +235,7 @@ describe("buildDashboardView", () => {
     ], 0, "shortlisted");
 
     expect(view.tableRows).toHaveLength(1);
-    expect(view.tableRows[0][2]).toBe("Shortlisted Co");
+    expect(view.tableRows[0][1]).toBe("Shortlisted Co");
     expect(view.visibleJobIds).toEqual([1]);
   });
 
@@ -353,31 +353,31 @@ describe("buildDashboardView", () => {
     const allView = buildDashboardView(records, 0, "all");
     expect(allView.visibleJobIds).toEqual([5]);
     expect(allView.tableRows).toHaveLength(1);
-    expect(allView.tableRows[0][2]).toBe("Evaluated Co");
+    expect(allView.tableRows[0][1]).toBe("Evaluated Co");
     expect(allView.tabs.find((tab) => tab.key === "all")?.count).toBe(1);
     expect(allView.tabs.find((tab) => tab.key === "no_apply")?.count).toBe(1);
 
     const shortlistedView = buildDashboardView(records, 0, "shortlisted");
     expect(shortlistedView.visibleJobIds).toEqual([2]);
-    expect(shortlistedView.tableRows[0][2]).toBe("Shortlist Co");
+    expect(shortlistedView.tableRows[0][1]).toBe("Shortlist Co");
 
     const appliedView = buildDashboardView(records, 0, "applied");
     expect(appliedView.visibleJobIds).toEqual([3]);
-    expect(appliedView.tableRows[0][2]).toBe("Applied Co");
+    expect(appliedView.tableRows[0][1]).toBe("Applied Co");
 
     const interviewView = buildDashboardView(records, 0, "interview");
     expect(interviewView.visibleJobIds).toEqual([4]);
-    expect(interviewView.tableRows[0][2]).toBe("Interview Co");
+    expect(interviewView.tableRows[0][1]).toBe("Interview Co");
 
     const topView = buildDashboardView(records, 0, "top");
     expect(topView.visibleJobIds).toEqual([2, 3, 4, 5]);
     expect(topView.tableRows).toHaveLength(4);
-    expect(topView.tableRows[0][2]).toBe("Shortlist Co");
+    expect(topView.tableRows[0][1]).toBe("Shortlist Co");
 
     const noApplyView = buildDashboardView(records, 0, "no_apply");
     expect(noApplyView.visibleJobIds).toEqual([1]);
     expect(noApplyView.tableRows).toHaveLength(1);
-    expect(noApplyView.tableRows[0][2]).toBe("Rejected Co");
+    expect(noApplyView.tableRows[0][1]).toBe("Rejected Co");
   });
 });
 

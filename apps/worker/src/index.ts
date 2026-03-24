@@ -7,6 +7,7 @@ import { normalizeLevelsSourceUrl, normalizeLinkedInSourceUrl } from "./source-u
 import {
   canTransition,
   CareerOpsPipeline,
+  RESUME_FEEDBACK_OUTCOMES,
   SOURCE_KINDS,
   ensureDataPaths,
   ensureReviewRequired,
@@ -17,6 +18,7 @@ import {
   type EvaluationReport,
   type JobListing,
   type JobRecordWithArtifacts,
+  type ResumeFeedbackOutcome,
   type SourceKind,
   type SourceSyncRun
 } from "@career-ops/core";
@@ -1485,6 +1487,26 @@ function validateSourceKind(kind: string): SourceKind {
   throw new Error(`Unsupported source kind ${kind}. Expected one of: ${SOURCE_KINDS.join(", ")}`);
 }
 
+function parseTagsCsv(value: string | undefined): string[] {
+  if (value == null || value.trim().length === 0) {
+    return [];
+  }
+  return Array.from(new Set(
+    value
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0)
+  ));
+}
+
+function validateResumeFeedbackOutcome(outcome: string): ResumeFeedbackOutcome {
+  const normalized = outcome.trim().toLowerCase();
+  if ((RESUME_FEEDBACK_OUTCOMES as readonly string[]).includes(normalized)) {
+    return normalized as ResumeFeedbackOutcome;
+  }
+  throw new Error(`Unsupported feedback outcome ${outcome}. Expected one of: ${RESUME_FEEDBACK_OUTCOMES.join(", ")}`);
+}
+
 function printEvaluationReport(report: EvaluationReport): void {
   console.log(`Summary: ${report.summary}`);
   console.log(`Executive summary: ${report.executiveSummary}`);
@@ -1576,6 +1598,186 @@ program
     try {
       const result = pipeline.repo.clearListings();
       console.log(JSON.stringify(result, null, 2));
+    } finally {
+      pipeline.dispose();
+    }
+  });
+
+program
+  .command("exclude-company")
+  .description("Add or update a globally excluded company")
+  .argument("<company>")
+  .option("--reason <reason>", "optional exclusion reason")
+  .action((company: string, options: { reason?: string }) => {
+    const pipeline = new CareerOpsPipeline(rootDir, dbPath);
+    try {
+      const id = pipeline.excludeCompany(company, options.reason);
+      console.log(`Excluded company #${id}: ${company.trim()}`);
+    } finally {
+      pipeline.dispose();
+    }
+  });
+
+program
+  .command("include-company")
+  .description("Remove a company from the global exclusion list")
+  .argument("<company>")
+  .action((company: string) => {
+    const pipeline = new CareerOpsPipeline(rootDir, dbPath);
+    try {
+      const removed = pipeline.includeCompany(company);
+      console.log(removed
+        ? `Removed company exclusion: ${company.trim()}`
+        : `No exclusion found for: ${company.trim()}`);
+    } finally {
+      pipeline.dispose();
+    }
+  });
+
+program
+  .command("list-excluded-companies")
+  .description("List globally excluded companies")
+  .action(() => {
+    const pipeline = new CareerOpsPipeline(rootDir, dbPath);
+    try {
+      const exclusions = pipeline.listExcludedCompanies();
+      if (exclusions.length === 0) {
+        console.log("No excluded companies configured.");
+        return;
+      }
+      for (const exclusion of exclusions) {
+        console.log(`#${exclusion.id} | ${exclusion.company} | key=${exclusion.companyKey}${exclusion.reason ? ` | reason=${exclusion.reason}` : ""}`);
+      }
+    } finally {
+      pipeline.dispose();
+    }
+  });
+
+program
+  .command("remember-answer")
+  .description("Store or update reusable application-answer memory")
+  .argument("<questionKey>")
+  .argument("<answer...>")
+  .option("--tags <csv>", "optional comma-separated tags (metadata only)")
+  .action((questionKey: string, answerParts: string[], options: { tags?: string }) => {
+    const pipeline = new CareerOpsPipeline(rootDir, dbPath);
+    try {
+      const answer = answerParts.join(" ").trim();
+      const tags = parseTagsCsv(options.tags);
+      const id = pipeline.rememberApplicationAnswer(questionKey, answer, tags);
+      console.log(`Saved answer memory #${id} for key "${questionKey.trim().toLowerCase()}".`);
+    } finally {
+      pipeline.dispose();
+    }
+  });
+
+program
+  .command("forget-answer")
+  .description("Delete a reusable application-answer memory key")
+  .argument("<questionKey>")
+  .action((questionKey: string) => {
+    const pipeline = new CareerOpsPipeline(rootDir, dbPath);
+    try {
+      const removed = pipeline.forgetApplicationAnswer(questionKey);
+      console.log(removed
+        ? `Removed answer memory key: ${questionKey.trim().toLowerCase()}`
+        : `No answer memory key found for: ${questionKey.trim().toLowerCase()}`);
+    } finally {
+      pipeline.dispose();
+    }
+  });
+
+program
+  .command("list-answer-memory")
+  .description("List reusable application-answer memory entries")
+  .action(() => {
+    const pipeline = new CareerOpsPipeline(rootDir, dbPath);
+    try {
+      const entries = pipeline.listApplicationAnswerMemory();
+      if (entries.length === 0) {
+        console.log("No answer memory entries saved.");
+        return;
+      }
+      for (const entry of entries) {
+        const tags = entry.tags.length > 0 ? entry.tags.join(",") : "-";
+        console.log(`#${entry.id} | ${entry.questionKey} | used=${entry.usageCount} | tags=${tags}`);
+        console.log(`  ${entry.answer}`);
+      }
+    } finally {
+      pipeline.dispose();
+    }
+  });
+
+program
+  .command("resume-feedback")
+  .description("Record performance feedback for a generated resume variant")
+  .argument("<jobId>")
+  .requiredOption("--outcome <outcome>", `one of: ${RESUME_FEEDBACK_OUTCOMES.join(", ")}`)
+  .option("--score <score>", "optional numeric score (for example 3.5)")
+  .option("--notes <notes>", "optional free-text notes")
+  .action(async (jobId: string, options: { outcome: string; score?: string; notes?: string }) => {
+    const pipeline = new CareerOpsPipeline(rootDir, dbPath);
+    try {
+      const parsedJobId = Number(jobId);
+      if (!Number.isInteger(parsedJobId) || parsedJobId <= 0) {
+        throw new Error(`Invalid job id ${jobId}. Expected a positive integer.`);
+      }
+      const outcome = validateResumeFeedbackOutcome(options.outcome);
+      const score = options.score == null
+        ? undefined
+        : Number(options.score);
+      if (score != null && !Number.isFinite(score)) {
+        throw new Error(`Invalid --score value ${options.score}. Expected a number.`);
+      }
+
+      await pipeline.recordResumeVariantFeedback(parsedJobId, {
+        outcome,
+        score,
+        notes: options.notes
+      });
+      console.log(`Saved resume feedback for job #${parsedJobId}: outcome=${outcome}${score != null ? ` score=${score}` : ""}`);
+    } finally {
+      pipeline.dispose();
+    }
+  });
+
+program
+  .command("resume-feedback-list")
+  .description("List recorded resume-variant feedback entries")
+  .option("--limit <count>", "max entries to print", "50")
+  .action((options: { limit: string }) => {
+    const pipeline = new CareerOpsPipeline(rootDir, dbPath);
+    try {
+      const limit = Number(options.limit);
+      const entries = pipeline.listResumeVariantFeedback(Number.isFinite(limit) ? limit : 50);
+      if (entries.length === 0) {
+        console.log("No resume feedback entries found.");
+        return;
+      }
+      for (const entry of entries) {
+        const scoreText = entry.score != null ? entry.score.toFixed(2) : "-";
+        const keywords = entry.resumeKeywords.slice(0, 6).join(", ");
+        console.log(`#${entry.id} | job=${entry.jobId} | ${entry.company} | ${entry.title} | outcome=${entry.outcome} | score=${scoreText}`);
+        if (keywords.length > 0) {
+          console.log(`  keywords: ${keywords}`);
+        }
+        if (entry.notes != null && entry.notes.trim().length > 0) {
+          console.log(`  notes: ${entry.notes.trim()}`);
+        }
+      }
+    } finally {
+      pipeline.dispose();
+    }
+  });
+
+program
+  .command("resume-feedback-summary")
+  .description("Print aggregate performance feedback for resume variants")
+  .action(() => {
+    const pipeline = new CareerOpsPipeline(rootDir, dbPath);
+    try {
+      const summary = pipeline.summarizeResumeVariantFeedback();
+      console.log(JSON.stringify(summary, null, 2));
     } finally {
       pipeline.dispose();
     }

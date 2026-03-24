@@ -99,6 +99,14 @@ Career Ops now also supports:
 - `ofertas`: compare multiple jobs and rank them by score, grade, and main risk
 - `auto-pipeline`: run scan, evaluation, resume generation, and optional apply draft for a single URL
 
+### 6. Exclusions, answer memory, and resume feedback
+
+Career Ops also supports:
+
+- global company exclusion filters applied during crawl ingestion
+- reusable application-answer memory entries merged into drafted application answers
+- resume variant performance feedback tracking (outcome/score/notes) with aggregate summaries
+
 ## Workflow
 
 Typical operation loop:
@@ -155,6 +163,15 @@ node apps/worker/dist/apps/worker/src/index.js <command>
 Main commands:
 
 - `seed-demo`
+- `exclude-company <company> [--reason <reason>]`
+- `include-company <company>`
+- `list-excluded-companies`
+- `remember-answer <questionKey> <answer...> [--tags <csv>]`
+- `forget-answer <questionKey>`
+- `list-answer-memory`
+- `resume-feedback <jobId> --outcome <no_response|rejected|screen|interview|offer> [--score <n>] [--notes <text>]`
+- `resume-feedback-list [--limit 50]`
+- `resume-feedback-summary`
 - `register-source <url> --kind <kind> --region toronto-canada`
 - `list-sources [--all] [--region toronto-canada]`
 - `seed-toronto-sources`
