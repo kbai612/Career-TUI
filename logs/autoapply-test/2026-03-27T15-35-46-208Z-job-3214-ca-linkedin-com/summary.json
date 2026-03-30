@@ -1,0 +1,142 @@
+{
+  "generatedAt": "2026-03-27T15:37:55.753Z",
+  "jobId": 3214,
+  "company": "Aon",
+  "title": "Data Scientist",
+  "targetUrl": "https://ca.linkedin.com/jobs/view/data-scientist-at-aon-4390874737",
+  "outcome": "prefilled",
+  "entryRoute": "company_specific",
+  "missingKeys": [],
+  "roleAnswersUsed": 0,
+  "resumeUploaded": false,
+  "pageErrors": [],
+  "message": "final submit is intentionally disabled in autoapply-test.",
+  "snapshots": [
+    {
+      "step": 1,
+      "label": "opened-target-page",
+      "timestamp": "2026-03-27T15:36:02.450Z",
+      "url": "https://www.linkedin.com/jobs/view/data-scientist-at-aon-4390874737/",
+      "screenshotFile": "01-opened-target-page.png",
+      "stateFile": "01-opened-target-page.json",
+      "htmlFile": "01-opened-target-page.html"
+    },
+    {
+      "step": 2,
+      "label": "entry-resolved",
+      "timestamp": "2026-03-27T15:36:53.942Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "02-entry-resolved.png",
+      "stateFile": "02-entry-resolved.json",
+      "htmlFile": "02-entry-resolved.html"
+    },
+    {
+      "step": 3,
+      "label": "post-login-check",
+      "timestamp": "2026-03-27T15:37:24.272Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "03-post-login-check.png",
+      "stateFile": "03-post-login-check.json",
+      "htmlFile": "03-post-login-check.html"
+    },
+    {
+      "step": 4,
+      "label": "pass-1-after-fill",
+      "timestamp": "2026-03-27T15:37:32.862Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "04-pass-1-after-fill.png",
+      "stateFile": "04-pass-1-after-fill.json",
+      "htmlFile": "04-pass-1-after-fill.html"
+    },
+    {
+      "step": 5,
+      "label": "pass-1-after-visible-field-fill",
+      "timestamp": "2026-03-27T15:37:33.279Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "05-pass-1-after-visible-field-fill.png",
+      "stateFile": "05-pass-1-after-visible-field-fill.json",
+      "htmlFile": "05-pass-1-after-visible-field-fill.html"
+    },
+    {
+      "step": 6,
+      "label": "pass-1-after-progress-attempt",
+      "timestamp": "2026-03-27T15:37:33.678Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "06-pass-1-after-progress-attempt.png",
+      "stateFile": "06-pass-1-after-progress-attempt.json",
+      "htmlFile": "06-pass-1-after-progress-attempt.html"
+    },
+    {
+      "step": 7,
+      "label": "pass-1-after-progress-settle",
+      "timestamp": "2026-03-27T15:37:34.743Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "07-pass-1-after-progress-settle.png",
+      "stateFile": "07-pass-1-after-progress-settle.json",
+      "htmlFile": "07-pass-1-after-progress-settle.html"
+    },
+    {
+      "step": 8,
+      "label": "pass-2-after-fill",
+      "timestamp": "2026-03-27T15:37:41.404Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "08-pass-2-after-fill.png",
+      "stateFile": "08-pass-2-after-fill.json",
+      "htmlFile": "08-pass-2-after-fill.html"
+    },
+    {
+      "step": 9,
+      "label": "pass-2-after-visible-field-fill",
+      "timestamp": "2026-03-27T15:37:41.623Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "09-pass-2-after-visible-field-fill.png",
+      "stateFile": "09-pass-2-after-visible-field-fill.json",
+      "htmlFile": "09-pass-2-after-visible-field-fill.html"
+    },
+    {
+      "step": 10,
+      "label": "pass-3-after-fill",
+      "timestamp": "2026-03-27T15:37:48.344Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "10-pass-3-after-fill.png",
+      "stateFile": "10-pass-3-after-fill.json",
+      "htmlFile": "10-pass-3-after-fill.html"
+    },
+    {
+      "step": 11,
+      "label": "pass-3-after-visible-field-fill",
+      "timestamp": "2026-03-27T15:37:48.570Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "11-pass-3-after-visible-field-fill.png",
+      "stateFile": "11-pass-3-after-visible-field-fill.json",
+      "htmlFile": "11-pass-3-after-visible-field-fill.html"
+    },
+    {
+      "step": 12,
+      "label": "pass-4-after-fill",
+      "timestamp": "2026-03-27T15:37:55.265Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "12-pass-4-after-fill.png",
+      "stateFile": "12-pass-4-after-fill.json",
+      "htmlFile": "12-pass-4-after-fill.html"
+    },
+    {
+      "step": 13,
+      "label": "pass-4-after-visible-field-fill",
+      "timestamp": "2026-03-27T15:37:55.501Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "13-pass-4-after-visible-field-fill.png",
+      "stateFile": "13-pass-4-after-visible-field-fill.json",
+      "htmlFile": "13-pass-4-after-visible-field-fill.html"
+    },
+    {
+      "step": 14,
+      "label": "post-autofill",
+      "timestamp": "2026-03-27T15:37:55.753Z",
+      "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774625782811&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.212033236.1391736572.1774573671-286962217.1774573670&_gl=1*aiy6az*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjU3ODAkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "screenshotFile": "14-post-autofill.png",
+      "stateFile": "14-post-autofill.json",
+      "htmlFile": "14-post-autofill.html"
+    }
+  ]
+}

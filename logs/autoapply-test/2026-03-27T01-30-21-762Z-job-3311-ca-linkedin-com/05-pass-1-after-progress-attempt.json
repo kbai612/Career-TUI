@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-03-27T01:33:14.191Z",
+  "label": "pass-1-after-progress-attempt",
+  "url": "https://www.google.com/sorry/index?continue=https://www.google.com/search%3Fq%3D80000%2Bcad%2Bto%2Busd%26rlz%3D1C1GCEA_enCA1028CA1028%26oq%3D80000%2BCAD%26gs_lcrp%3DEgZjaHJvbWUqBwgBEAAYgAQyBggAEEUYOTIHCAEQABiABDIHCAIQABiABDIHCAMQABiABDIHCAQQABiABDIHCAUQABiABDIHCAYQABiABDIHCAcQABiABDIHCAgQABiABDIHCAkQABiABNIBCDE2NjhqMGo0qAIAsAIB%26sourceid%3Dchrome%26ie%3DUTF-8%26sei%3D_N3FaeWvNben0PEPk9eRqQg&q=EgTO_Y42GP27l84GIjCy3Vmzk-Pjj3wZb_PmsnYVdvF_9Cv_CNbesGDCWlEvE78PAL6ZSF9FlDFPIG-BNZcyAVJaAUM",
+  "title": "https://www.google.com/search?q=80000+cad+to+usd&rlz=1C1GCEA_enCA1028CA1028&oq=80000+CAD&gs_lcrp=EgZjaHJvbWUqBwgBEAAYgAQyBggAEEUYOTIHCAEQABiABDIHCAIQABiABDIHCAMQABiABDIHCAQQABiABDIHCAUQABiABDIHCAYQABiABDIHCAcQABiABDIHCAgQABiABDIHCAkQABiABNIBCDE2NjhqMGo0qAIAsAIB&sourceid=chrome&ie=UTF-8&sei=_N3FaeWvNben0PEPk9eRqQg",
+  "surface": {
+    "mainControls": 3,
+    "mainForms": 1,
+    "mainFileInputs": 0,
+    "mainContactSignals": 1,
+    "totalControls": 5,
+    "totalForms": 1,
+    "fileInputs": 0,
+    "contactSignals": 1,
+    "hasLinkedInApplyEntry": false
+  },
+  "frameUrls": [
+    "https://www.google.com/sorry/index?continue=https://www.google.com/search%3Fq%3D80000%2Bcad%2Bto%2Busd%26rlz%3D1C1GCEA_enCA1028CA1028%26oq%3D80000%2BCAD%26gs_lcrp%3DEgZjaHJvbWUqBwgBEAAYgAQyBggAEEUYOTIHCAEQABiABDIHCAIQABiABDIHCAMQABiABDIHCAQQABiABDIHCAUQABiABDIHCAYQABiABDIHCAcQABiABDIHCAgQABiABDIHCAkQABiABNIBCDE2NjhqMGo0qAIAsAIB%26sourceid%3Dchrome%26ie%3DUTF-8%26sei%3D_N3FaeWvNben0PEPk9eRqQg&q=EgTO_Y42GP27l84GIjCy3Vmzk-Pjj3wZb_PmsnYVdvF_9Cv_CNbesGDCWlEvE78PAL6ZSF9FlDFPIG-BNZcyAVJaAUM",
+    "https://www.google.com/recaptcha/enterprise/anchor?ar=1&k=6LdLLIMbAAAAAIl-KLj9p1ePhM-4LCCDbjtJLqRO&co=aHR0cHM6Ly93d3cuZ29vZ2xlLmNvbTo0NDM.&hl=en&v=79clEdOi5xQbrrpL2L8kGmK3&size=normal&s=TWT4AZft70416qMVrkWuwhfKaAdPNAMBvFpEjFWX2X25dyykUpU-4IxjdUuJmLtES5pmQcC_qEEg8U4JFnu9DOIyq2TCAWsIB8h6zhpJVU2JdHpj_J60ieWuONXtQJsgNYcbg8wWVYlSVjcWKKP3irDT-m1SIS1c-cbWG-B2Ya3utmMzpff72y-YGT4wzX-nKpTJG34xDCWiBUwo6YeUWAmK2FpOB5p2it7nzinHVsJOWk5zmmoGO_ZtIACIS1hFjmwZNcSBv4-1IuIaxX3n_fPElAIK02U&anchor-ms=20000&execute-ms=30000&cb=ctk9gsa2uc66",
+    "about:blank",
+    "about:blank",
+    "https://www.google.com/recaptcha/enterprise/bframe?hl=en&v=79clEdOi5xQbrrpL2L8kGmK3&k=6LdLLIMbAAAAAIl-KLj9p1ePhM-4LCCDbjtJLqRO&bft=0dAFcWeA7-05noLkTcdYVwd7tpcYN_hF1sYPHz-Z6uPIQUfqS2iddfP6NJQ-5UZtC10R-gHgA9O-wMvLkFXHa-374oJj1eD9rzmg"
+  ],
+  "fieldSampleCount": 5,
+  "fieldSamples": [
+    {
+      "frame": "main",
+      "tag": "textarea",
+      "type": "",
+      "name": "g-recaptcha-response",
+      "id": "g-recaptcha-response",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 0,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    },
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "hidden",
+      "name": "q",
+      "id": "",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 91,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    },
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "hidden",
+      "name": "continue",
+      "id": "",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 314,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    },
+    {
+      "frame": "https://www.google.com/recaptcha/enterprise/anchor?ar=1&k=6LdLLIMbAAAAAIl-KLj9p1ePhM-4LCCDbjtJLqRO&co=aHR0cHM6Ly93d3cuZ29vZ2xlLmNvbTo0NDM.&hl=en&v=79clEdOi5xQbrrpL2L8kGmK3&size=normal&s=TWT4AZft70416qMVrkWuwhfKaAdPNAMBvFpEjFWX2X25dyykUpU-4IxjdUuJmLtES5pmQcC_qEEg8U4JFnu9DOIyq2TCAWsIB8h6zhpJVU2JdHpj_J60ieWuONXtQJsgNYcbg8wWVYlSVjcWKKP3irDT-m1SIS1c-cbWG-B2Ya3utmMzpff72y-YGT4wzX-nKpTJG34xDCWiBUwo6YeUWAmK2FpOB5p2it7nzinHVsJOWk5zmmoGO_ZtIACIS1hFjmwZNcSBv4-1IuIaxX3n_fPElAIK02U&anchor-ms=20000&execute-ms=30000&cb=ctk9gsa2uc66",
+      "tag": "input",
+      "type": "hidden",
+      "name": "",
+      "id": "recaptcha-token",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 1785,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    },
+    {
+      "frame": "https://www.google.com/recaptcha/enterprise/bframe?hl=en&v=79clEdOi5xQbrrpL2L8kGmK3&k=6LdLLIMbAAAAAIl-KLj9p1ePhM-4LCCDbjtJLqRO&bft=0dAFcWeA7-05noLkTcdYVwd7tpcYN_hF1sYPHz-Z6uPIQUfqS2iddfP6NJQ-5UZtC10R-gHgA9O-wMvLkFXHa-374oJj1eD9rzmg",
+      "tag": "input",
+      "type": "hidden",
+      "name": "",
+      "id": "recaptcha-token",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 0,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    }
+  ],
+  "ctaSamples": [],
+  "route": "linkedin_apply",
+  "pass": 1,
+  "progressed": false,
+  "beforeSignature": "::"
+}

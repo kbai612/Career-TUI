@@ -1,0 +1,118 @@
+{
+  "timestamp": "2026-03-27T01:38:35.434Z",
+  "label": "entry-resolved",
+  "url": "https://jobs.aon.com/jobs/100620?lang=en-us&iis=Job+Board&iisn=LinkedIn",
+  "title": "Data Scientist in Toronto, Canada | Aon Corporation",
+  "surface": {
+    "mainControls": 5,
+    "mainForms": 0,
+    "mainFileInputs": 0,
+    "mainContactSignals": 0,
+    "totalControls": 7,
+    "totalForms": 0,
+    "fileInputs": 0,
+    "contactSignals": 2,
+    "hasLinkedInApplyEntry": false
+  },
+  "frameUrls": [
+    "https://jobs.aon.com/jobs/100620?lang=en-us&iis=Job+Board&iisn=LinkedIn",
+    "about:blank",
+    "https://assets.textrecruit.com/jc2/prd/index.html"
+  ],
+  "fieldSampleCount": 7,
+  "fieldSamples": [
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "checkbox",
+      "name": "",
+      "id": "menu-toggle",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 2,
+      "required": false,
+      "disabled": false,
+      "labelText": "Menu Toggle"
+    },
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "range",
+      "name": "",
+      "id": "plyr-seek-1519",
+      "ariaLabel": "Seek",
+      "placeholder": "",
+      "valueLength": 1,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    },
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "range",
+      "name": "",
+      "id": "plyr-volume-1519",
+      "ariaLabel": "Volume",
+      "placeholder": "",
+      "valueLength": 1,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    },
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "range",
+      "name": "",
+      "id": "seek",
+      "ariaLabel": "Video progress [object Object]",
+      "placeholder": "",
+      "valueLength": 1,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    },
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "range",
+      "name": "",
+      "id": "",
+      "ariaLabel": "Volume set to 100%",
+      "placeholder": "",
+      "valueLength": 1,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    },
+    {
+      "frame": "https://assets.textrecruit.com/jc2/prd/index.html",
+      "tag": "textarea",
+      "type": "",
+      "name": "",
+      "id": "",
+      "ariaLabel": "",
+      "placeholder": "Type your message...",
+      "valueLength": 0,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    },
+    {
+      "frame": "https://assets.textrecruit.com/jc2/prd/index.html",
+      "tag": "textarea",
+      "type": "",
+      "name": "",
+      "id": "",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 1,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    }
+  ],
+  "ctaSamples": [],
+  "entryRoute": "linkedin_apply"
+}

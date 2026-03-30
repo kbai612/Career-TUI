@@ -61,6 +61,35 @@ const DEFAULT_EXCLUDED_TITLE_KEYWORDS = [
   "systems analyst"
 ];
 
+const LINKEDIN_ROLE_TITLE_KEYWORDS: Record<string, readonly string[]> = {
+  "data-analyst": [
+    "data analyst",
+    "business intelligence analyst",
+    "bi analyst",
+    "analytics analyst",
+    "reporting analyst"
+  ],
+  "senior-data-analyst": [
+    "senior data analyst",
+    "sr data analyst",
+    "sr. data analyst",
+    "lead data analyst",
+    "principal data analyst",
+    "staff data analyst"
+  ],
+  "analytics-engineer": [
+    "analytics engineer",
+    "data analytics engineer",
+    "business intelligence engineer",
+    "bi engineer"
+  ],
+  "data-scientist": [
+    "data scientist",
+    "applied scientist",
+    "machine learning scientist"
+  ]
+};
+
 export class CareerOpsPipeline {
   readonly repo: CareerOpsRepository;
   private readonly rootDir: string;
@@ -105,6 +134,28 @@ export class CareerOpsPipeline {
     }
     const pattern = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i");
     return pattern.test(haystack);
+  }
+
+  private resolveLinkedInRoleTitleKeywords(source?: CareerSource): string[] {
+    if (source?.kind !== "linkedin") {
+      return [];
+    }
+    const roleKey = typeof source.metadata?.role === "string"
+      ? source.metadata.role.trim().toLowerCase()
+      : "";
+    const mappedKeywords = LINKEDIN_ROLE_TITLE_KEYWORDS[roleKey];
+    if (Array.isArray(mappedKeywords) && mappedKeywords.length > 0) {
+      return [...mappedKeywords];
+    }
+    try {
+      const parsed = new URL(source.sourceUrl);
+      const keywordPhrase = parsed.searchParams.get("keywords")?.trim().toLowerCase().replace(/\s+/g, " ");
+      return keywordPhrase && keywordPhrase.length > 0
+        ? [keywordPhrase]
+        : [];
+    } catch {
+      return [];
+    }
   }
 
   private normalizeCompanyKey(value: string): string {
@@ -185,7 +236,9 @@ export class CareerOpsPipeline {
       : listings;
     const excludedTitleKeywords = Array.isArray(source?.metadata?.excludeTitleKeywords)
       ? source.metadata.excludeTitleKeywords.filter((keyword): keyword is string => typeof keyword === "string" && keyword.trim().length > 0)
-      : DEFAULT_EXCLUDED_TITLE_KEYWORDS;
+      : source?.kind === "linkedin"
+        ? []
+        : DEFAULT_EXCLUDED_TITLE_KEYWORDS;
     const listingsWithoutExcludedTitles = excludedTitleKeywords.length > 0
       ? listingsWithoutExcludedCompanies.filter((listing) => {
           const titleHaystack = (listing.title ?? "").toLowerCase();
@@ -215,17 +268,27 @@ export class CareerOpsPipeline {
           }
           return postedTimestamp >= Date.now() - (maxAgeHours * 60 * 60 * 1000);
         });
-    const shouldApplyTitleKeywords = titleKeywords.length > 0 && source?.kind !== "levels";
-    const filteredListings = shouldApplyTitleKeywords
+    const linkedInRoleTitleKeywords = this.resolveLinkedInRoleTitleKeywords(source);
+    const linkedInRoleFilteredListings = source?.kind === "linkedin" && linkedInRoleTitleKeywords.length > 0
       ? recencyFilteredListings.filter((listing) => {
+          const titleHaystack = (listing.title ?? "").toLowerCase();
+          return linkedInRoleTitleKeywords.some((keyword) => this.keywordMatches(titleHaystack, keyword));
+        })
+      : recencyFilteredListings;
+    const shouldApplyTitleKeywords = titleKeywords.length > 0 && source?.kind !== "levels" && source?.kind !== "linkedin";
+    const filteredListings = shouldApplyTitleKeywords
+      ? linkedInRoleFilteredListings.filter((listing) => {
           const haystack = `${listing.title} ${listing.description ?? ""}`.toLowerCase();
           return titleKeywords.some((keyword) => this.keywordMatches(haystack, keyword));
         })
+      : linkedInRoleFilteredListings;
+    const discoveryFallbackListings = source?.kind === "linkedin"
+      ? linkedInRoleFilteredListings
       : recencyFilteredListings;
     const effectiveListings = filteredListings.length === 0
-      && recencyFilteredListings.length > 0
+      && discoveryFallbackListings.length > 0
       && source?.metadata?.discoveryOnly === true
-      ? recencyFilteredListings
+      ? discoveryFallbackListings
       : filteredListings;
     const fallbackLocation = this.inferLocationFromSourceUrl(source?.sourceUrl ?? sourceUrl);
     const enrichedListings = effectiveListings.map((listing) => enrichDiscoveredListing({

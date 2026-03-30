@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-03-27T12:27:28.802Z",
+  "jobId": 0,
+  "company": "Manual test",
+  "title": "Autoapply test",
+  "targetUrl": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60",
+  "outcome": "prefilled",
+  "entryRoute": "generic_apply",
+  "missingKeys": [],
+  "roleAnswersUsed": 0,
+  "resumeUploaded": true,
+  "pageErrors": [],
+  "message": "Final submit is intentionally disabled in autoapply-test.",
+  "snapshots": [
+    {
+      "step": 1,
+      "label": "opened-target-page",
+      "timestamp": "2026-03-27T12:25:59.883Z",
+      "url": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60",
+      "screenshotFile": "01-opened-target-page.png",
+      "stateFile": "01-opened-target-page.json",
+      "htmlFile": "01-opened-target-page.html"
+    },
+    {
+      "step": 2,
+      "label": "entry-resolved",
+      "timestamp": "2026-03-27T12:26:32.206Z",
+      "url": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60/apply",
+      "screenshotFile": "02-entry-resolved.png",
+      "stateFile": "02-entry-resolved.json",
+      "htmlFile": "02-entry-resolved.html"
+    },
+    {
+      "step": 3,
+      "label": "post-login-check",
+      "timestamp": "2026-03-27T12:26:32.405Z",
+      "url": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60/apply",
+      "screenshotFile": "03-post-login-check.png",
+      "stateFile": "03-post-login-check.json",
+      "htmlFile": "03-post-login-check.html"
+    },
+    {
+      "step": 4,
+      "label": "pass-1-after-fill",
+      "timestamp": "2026-03-27T12:26:49.001Z",
+      "url": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60/apply",
+      "screenshotFile": "04-pass-1-after-fill.png",
+      "stateFile": "04-pass-1-after-fill.json",
+      "htmlFile": "04-pass-1-after-fill.html"
+    },
+    {
+      "step": 5,
+      "label": "pass-1-after-visible-field-fill",
+      "timestamp": "2026-03-27T12:26:51.637Z",
+      "url": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60/apply",
+      "screenshotFile": "05-pass-1-after-visible-field-fill.png",
+      "stateFile": "05-pass-1-after-visible-field-fill.json",
+      "htmlFile": "05-pass-1-after-visible-field-fill.html"
+    },
+    {
+      "step": 6,
+      "label": "pass-2-after-fill",
+      "timestamp": "2026-03-27T12:27:09.475Z",
+      "url": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60/apply",
+      "screenshotFile": "06-pass-2-after-fill.png",
+      "stateFile": "06-pass-2-after-fill.json",
+      "htmlFile": "06-pass-2-after-fill.html"
+    },
+    {
+      "step": 7,
+      "label": "pass-2-after-visible-field-fill",
+      "timestamp": "2026-03-27T12:27:11.007Z",
+      "url": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60/apply",
+      "screenshotFile": "07-pass-2-after-visible-field-fill.png",
+      "stateFile": "07-pass-2-after-visible-field-fill.json",
+      "htmlFile": "07-pass-2-after-visible-field-fill.html"
+    },
+    {
+      "step": 8,
+      "label": "pass-3-after-fill",
+      "timestamp": "2026-03-27T12:27:27.156Z",
+      "url": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60/apply",
+      "screenshotFile": "08-pass-3-after-fill.png",
+      "stateFile": "08-pass-3-after-fill.json",
+      "htmlFile": "08-pass-3-after-fill.html"
+    },
+    {
+      "step": 9,
+      "label": "pass-3-after-visible-field-fill",
+      "timestamp": "2026-03-27T12:27:28.615Z",
+      "url": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60/apply",
+      "screenshotFile": "09-pass-3-after-visible-field-fill.png",
+      "stateFile": "09-pass-3-after-visible-field-fill.json",
+      "htmlFile": "09-pass-3-after-visible-field-fill.html"
+    },
+    {
+      "step": 10,
+      "label": "post-autofill",
+      "timestamp": "2026-03-27T12:27:28.802Z",
+      "url": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60/apply",
+      "screenshotFile": "10-post-autofill.png",
+      "stateFile": "10-post-autofill.json",
+      "htmlFile": "10-post-autofill.html"
+    }
+  ]
+}

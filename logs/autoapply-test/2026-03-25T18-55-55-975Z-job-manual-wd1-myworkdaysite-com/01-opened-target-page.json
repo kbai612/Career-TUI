@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-03-25T18:55:59.033Z",
+  "label": "opened-target-page",
+  "url": "https://community.workday.com/maintenance-page",
+  "title": "Autoapply test",
+  "surface": {
+    "mainControls": 0,
+    "mainForms": 0,
+    "mainFileInputs": 0,
+    "mainContactSignals": 0,
+    "totalControls": 0,
+    "totalForms": 0,
+    "fileInputs": 0,
+    "contactSignals": 0,
+    "hasLinkedInApplyEntry": false
+  },
+  "frameUrls": [
+    "https://community.workday.com/maintenance-page"
+  ],
+  "fieldSampleCount": 0,
+  "fieldSamples": [],
+  "ctaSamples": [],
+  "jobId": 0,
+  "company": "Manual test",
+  "targetUrl": "https://wd1.myworkdaysite.com/recruiting/demo/demo/job/123",
+  "mode": "os",
+  "osDryRun": false
+}

@@ -1,0 +1,139 @@
+{
+  "generatedAt": "2026-03-27T09:47:59.371Z",
+  "jobId": 2788,
+  "company": "TD",
+  "title": "Senior Applied Machine Learning Scientist, Conversational AI (B3617)",
+  "targetUrl": "https://ca.linkedin.com/jobs/view/senior-applied-machine-learning-scientist-conversational-ai-b3617-at-td-4370503237",
+  "outcome": "prefilled",
+  "entryRoute": "workday",
+  "missingKeys": [
+    "full_name",
+    "email",
+    "phone",
+    "location",
+    "github",
+    "portfolio",
+    "requires_sponsorship",
+    "race",
+    "gender",
+    "veteran",
+    "disability",
+    "work_authorization",
+    "salary_expectation",
+    "notice_period"
+  ],
+  "roleAnswersUsed": 0,
+  "resumeUploaded": false,
+  "pageErrors": [],
+  "message": "Final submit is intentionally disabled in autoapply-test.",
+  "snapshots": [
+    {
+      "step": 1,
+      "label": "opened-target-page",
+      "timestamp": "2026-03-27T09:42:07.866Z",
+      "url": "https://www.linkedin.com/jobs/view/senior-applied-machine-learning-scientist-conversational-ai-b3617-at-td-4370503237/",
+      "screenshotFile": "01-opened-target-page.png",
+      "stateFile": "01-opened-target-page.json",
+      "htmlFile": "01-opened-target-page.html"
+    },
+    {
+      "step": 2,
+      "label": "entry-resolved",
+      "timestamp": "2026-03-27T09:46:15.675Z",
+      "url": "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143?source=LinkedIn",
+      "screenshotFile": "02-entry-resolved.png",
+      "stateFile": "02-entry-resolved.json",
+      "htmlFile": "02-entry-resolved.html"
+    },
+    {
+      "step": 3,
+      "label": "post-login-check",
+      "timestamp": "2026-03-27T09:47:11.147Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn",
+      "screenshotFile": "03-post-login-check.png",
+      "stateFile": "03-post-login-check.json",
+      "htmlFile": "03-post-login-check.html"
+    },
+    {
+      "step": 4,
+      "label": "pass-1-after-fill",
+      "timestamp": "2026-03-27T09:47:31.506Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn",
+      "screenshotFile": "04-pass-1-after-fill.png",
+      "stateFile": "04-pass-1-after-fill.json",
+      "htmlFile": "04-pass-1-after-fill.html"
+    },
+    {
+      "step": 5,
+      "label": "pass-1-after-visible-field-fill",
+      "timestamp": "2026-03-27T09:47:31.688Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn",
+      "screenshotFile": "05-pass-1-after-visible-field-fill.png",
+      "stateFile": "05-pass-1-after-visible-field-fill.json",
+      "htmlFile": "05-pass-1-after-visible-field-fill.html"
+    },
+    {
+      "step": 6,
+      "label": "pass-1-after-progress-attempt",
+      "timestamp": "2026-03-27T09:47:34.883Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn",
+      "screenshotFile": "06-pass-1-after-progress-attempt.png",
+      "stateFile": "06-pass-1-after-progress-attempt.json",
+      "htmlFile": "06-pass-1-after-progress-attempt.html"
+    },
+    {
+      "step": 7,
+      "label": "pass-1-after-progress-settle",
+      "timestamp": "2026-03-27T09:47:35.901Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn",
+      "screenshotFile": "07-pass-1-after-progress-settle.png",
+      "stateFile": "07-pass-1-after-progress-settle.json",
+      "htmlFile": "07-pass-1-after-progress-settle.html"
+    },
+    {
+      "step": 8,
+      "label": "pass-2-after-fill",
+      "timestamp": "2026-03-27T09:47:54.829Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn",
+      "screenshotFile": "08-pass-2-after-fill.png",
+      "stateFile": "08-pass-2-after-fill.json",
+      "htmlFile": "08-pass-2-after-fill.html"
+    },
+    {
+      "step": 9,
+      "label": "pass-2-after-visible-field-fill",
+      "timestamp": "2026-03-27T09:47:55.028Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn",
+      "screenshotFile": "09-pass-2-after-visible-field-fill.png",
+      "stateFile": "09-pass-2-after-visible-field-fill.json",
+      "htmlFile": "09-pass-2-after-visible-field-fill.html"
+    },
+    {
+      "step": 10,
+      "label": "pass-2-after-progress-attempt",
+      "timestamp": "2026-03-27T09:47:58.253Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn",
+      "screenshotFile": "10-pass-2-after-progress-attempt.png",
+      "stateFile": "10-pass-2-after-progress-attempt.json",
+      "htmlFile": "10-pass-2-after-progress-attempt.html"
+    },
+    {
+      "step": 11,
+      "label": "pass-2-after-progress-settle",
+      "timestamp": "2026-03-27T09:47:59.264Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn",
+      "screenshotFile": "11-pass-2-after-progress-settle.png",
+      "stateFile": "11-pass-2-after-progress-settle.json",
+      "htmlFile": "11-pass-2-after-progress-settle.html"
+    },
+    {
+      "step": 12,
+      "label": "post-autofill",
+      "timestamp": "2026-03-27T09:47:59.371Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn",
+      "screenshotFile": "12-post-autofill.png",
+      "stateFile": "12-post-autofill.json",
+      "htmlFile": "12-post-autofill.html"
+    }
+  ]
+}

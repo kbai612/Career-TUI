@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-03-27T08:55:30.638Z",
+  "label": "pass-1-after-progress-settle",
+  "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn",
+  "title": "Senior Applied Machine Learning Scientist, Conversational AI (B3617)",
+  "surface": {
+    "mainControls": 0,
+    "mainForms": 0,
+    "mainFileInputs": 0,
+    "mainContactSignals": 0,
+    "totalControls": 0,
+    "totalForms": 0,
+    "fileInputs": 0,
+    "contactSignals": 0,
+    "hasLinkedInApplyEntry": false
+  },
+  "frameUrls": [
+    "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Toronto%2C-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143/apply?source=LinkedIn"
+  ],
+  "fieldSampleCount": 0,
+  "fieldSamples": [],
+  "ctaSamples": [],
+  "pageErrors": [],
+  "route": "workday",
+  "pass": 1,
+  "beforeSignature": "TD Careers::Read Full Privacy Message|Decline|Accept Cookies|English|Settings|kevinbaiyyz@gmail.com|Why Choose Us|Search for Jobs",
+  "afterSignature": "TD Careers::Read Full Privacy Message|Decline|Accept Cookies|English|Settings|kevinbaiyyz@gmail.com|Why Choose Us|Search for Jobs"
+}

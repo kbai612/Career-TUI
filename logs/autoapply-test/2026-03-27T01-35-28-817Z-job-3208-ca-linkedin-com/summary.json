@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-03-27T01:35:55.134Z",
+  "jobId": 3208,
+  "company": "TD",
+  "title": "Applied Machine Learning Scientist I",
+  "targetUrl": "https://ca.linkedin.com/jobs/view/applied-machine-learning-scientist-i-at-td-4364939273",
+  "outcome": "prefilled",
+  "entryRoute": "linkedin_apply",
+  "missingKeys": [
+    "full_name",
+    "email",
+    "phone",
+    "location",
+    "linkedin",
+    "github",
+    "portfolio",
+    "requires_sponsorship",
+    "race",
+    "gender",
+    "veteran",
+    "disability",
+    "work_authorization",
+    "salary_expectation",
+    "notice_period"
+  ],
+  "roleAnswersUsed": 0,
+  "resumeUploaded": false,
+  "message": "Final submit is intentionally disabled in autoapply-test.",
+  "snapshots": [
+    {
+      "step": 1,
+      "label": "opened-target-page",
+      "timestamp": "2026-03-27T01:35:46.176Z",
+      "url": "https://www.linkedin.com/jobs/view/applied-machine-learning-scientist-i-at-td-4364939273/",
+      "screenshotFile": "01-opened-target-page.png",
+      "stateFile": "01-opened-target-page.json",
+      "htmlFile": "01-opened-target-page.html"
+    },
+    {
+      "step": 2,
+      "label": "entry-resolved",
+      "timestamp": "2026-03-27T01:35:52.432Z",
+      "url": "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Applied-Machine-Learning-Scientist-I_R_1467853?source=LinkedIn",
+      "screenshotFile": "02-entry-resolved.png",
+      "stateFile": "02-entry-resolved.json",
+      "htmlFile": "02-entry-resolved.html"
+    },
+    {
+      "step": 3,
+      "label": "post-login-check",
+      "timestamp": "2026-03-27T01:35:52.821Z",
+      "url": "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Applied-Machine-Learning-Scientist-I_R_1467853?source=LinkedIn",
+      "screenshotFile": "03-post-login-check.png",
+      "stateFile": "03-post-login-check.json",
+      "htmlFile": "03-post-login-check.html"
+    },
+    {
+      "step": 4,
+      "label": "pass-1-after-fill",
+      "timestamp": "2026-03-27T01:35:54.470Z",
+      "url": "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Applied-Machine-Learning-Scientist-I_R_1467853?source=LinkedIn",
+      "screenshotFile": "04-pass-1-after-fill.png",
+      "stateFile": "04-pass-1-after-fill.json",
+      "htmlFile": "04-pass-1-after-fill.html"
+    },
+    {
+      "step": 5,
+      "label": "pass-1-after-progress-attempt",
+      "timestamp": "2026-03-27T01:35:54.807Z",
+      "url": "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Applied-Machine-Learning-Scientist-I_R_1467853?source=LinkedIn",
+      "screenshotFile": "05-pass-1-after-progress-attempt.png",
+      "stateFile": "05-pass-1-after-progress-attempt.json",
+      "htmlFile": "05-pass-1-after-progress-attempt.html"
+    },
+    {
+      "step": 6,
+      "label": "post-autofill",
+      "timestamp": "2026-03-27T01:35:55.134Z",
+      "url": "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Applied-Machine-Learning-Scientist-I_R_1467853?source=LinkedIn",
+      "screenshotFile": "06-post-autofill.png",
+      "stateFile": "06-post-autofill.json",
+      "htmlFile": "06-post-autofill.html"
+    }
+  ]
+}

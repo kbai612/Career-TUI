@@ -86,8 +86,9 @@ Builds an application draft with:
 
 The `review-apply` mode opens a headed browser session, prefills fields, and stops for manual user review. It does not auto-submit.
 
-The `autoapply-shortlist` mode can run through shortlisted jobs in bulk, open each posting in Playwright, prefill fields, upload your resume, and optionally attempt submit clicks.
-LinkedIn-hosted apply URLs are excluded from `autoapply-shortlist`; use external ATS/company apply URLs or submit those manually.
+The `autoapply-shortlist` mode can run through shortlisted LinkedIn jobs in bulk, open each posting in a visible Chrome profile, detect LinkedIn `Apply` versus `Easy Apply`, use `pyautogui` to drive the real mouse and keyboard, adapt to the resulting form surface, upload your resume, and optionally attempt submit clicks.
+It still supports optional login/signup credentials and email OTP polling through IMAP, but the entrypoint is intentionally limited to LinkedIn postings for now.
+Install the Python bridge dependency before using it: `python -m pip install pyautogui`.
 
 ### 5. Research, outreach, and training
 
@@ -193,9 +194,13 @@ Main commands:
 - `training <source-or-file>`
 - `tracker`
 - `draft-apply <jobId>`
-- `autoapply-shortlist [--resume <path>] [--info <path>] [--submit] [--headless] [--wait-ms 1500] [--limit 0]`
+- `autoapply-shortlist [--resume <path>] [--info <path>] [--submit] [--mode pyautogui|playwright] [--os-dry-run] [--wait-ms 1500] [--limit 0]`
+- `autoapply-test [--job-id <id> | --url <url>] [--resume <path>] [--mode pyautogui|playwright] [--os-dry-run] [--no-debug-artifacts] [--debug-dir <path>]`
 - `review-apply <jobId>`
 - `apply <jobId>`
+
+`autoapply-test` and `autoapply-shortlist` now focus on LinkedIn entry routes:
+`linkedin_easy_apply` and `linkedin_apply`.
 
 TUI:
 

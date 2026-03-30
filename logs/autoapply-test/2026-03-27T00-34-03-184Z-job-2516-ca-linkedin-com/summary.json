@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-03-27T00:38:00.486Z",
+  "jobId": 2516,
+  "company": "Mistplay",
+  "title": "Senior Data Analyst, Product Analytics",
+  "targetUrl": "https://ca.linkedin.com/jobs/view/senior-data-analyst-product-analytics-at-mistplay-4390685882",
+  "outcome": "failed",
+  "message": "LinkedIn Apply/Easy Apply button was detected but could not be clicked safely without drifting.",
+  "snapshots": [
+    {
+      "step": 1,
+      "label": "opened-target-page",
+      "timestamp": "2026-03-27T00:34:21.825Z",
+      "url": "https://www.linkedin.com/jobs/view/senior-data-analyst-product-analytics-at-mistplay-4390685882/",
+      "screenshotFile": "01-opened-target-page.png",
+      "stateFile": "01-opened-target-page.json",
+      "htmlFile": "01-opened-target-page.html"
+    }
+  ]
+}

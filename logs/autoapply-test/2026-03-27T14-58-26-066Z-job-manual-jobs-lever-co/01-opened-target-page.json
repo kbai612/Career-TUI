@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-03-27T14:58:27.882Z",
+  "label": "opened-target-page",
+  "url": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60",
+  "title": "Autoapply test",
+  "surface": {
+    "mainControls": 0,
+    "mainForms": 0,
+    "mainFileInputs": 0,
+    "mainContactSignals": 0,
+    "totalControls": 0,
+    "totalForms": 0,
+    "fileInputs": 0,
+    "contactSignals": 0,
+    "hasLinkedInApplyEntry": false
+  },
+  "frameUrls": [
+    "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60",
+    "about:blank"
+  ],
+  "fieldSampleCount": 0,
+  "fieldSamples": [],
+  "ctaSamples": [],
+  "pageErrors": [],
+  "jobId": 0,
+  "company": "Manual test",
+  "targetUrl": "https://jobs.lever.co/ravl_io/877af61b-2377-4dfb-9dcd-7ac1c003fb60",
+  "mode": "pyautogui",
+  "osDryRun": false
+}

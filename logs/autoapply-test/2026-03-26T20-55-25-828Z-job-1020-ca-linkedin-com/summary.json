@@ -1,0 +1,76 @@
+{
+  "generatedAt": "2026-03-26T21:01:14.128Z",
+  "jobId": 1020,
+  "company": "Robinhood",
+  "title": "Analytics Engineer",
+  "targetUrl": "https://ca.linkedin.com/jobs/view/analytics-engineer-at-robinhood-4354291921",
+  "outcome": "prefilled",
+  "entryRoute": "direct_form",
+  "missingKeys": [
+    "full_name",
+    "email",
+    "phone",
+    "location",
+    "linkedin",
+    "github",
+    "portfolio",
+    "requires_sponsorship",
+    "race",
+    "gender",
+    "veteran",
+    "disability",
+    "work_authorization",
+    "salary_expectation",
+    "notice_period"
+  ],
+  "roleAnswersUsed": 0,
+  "resumeUploaded": false,
+  "message": "Final submit is intentionally disabled in autoapply-test.",
+  "snapshots": [
+    {
+      "step": 1,
+      "label": "opened-target-page",
+      "timestamp": "2026-03-26T20:55:44.350Z",
+      "url": "https://www.linkedin.com/jobs/view/analytics-engineer-at-robinhood-4354291921/",
+      "screenshotFile": "01-opened-target-page.png",
+      "stateFile": "01-opened-target-page.json",
+      "htmlFile": "01-opened-target-page.html"
+    },
+    {
+      "step": 2,
+      "label": "entry-resolved",
+      "timestamp": "2026-03-26T21:00:08.767Z",
+      "url": "https://www.linkedin.com/jobs/view/analytics-engineer-at-robinhood-4354291921/",
+      "screenshotFile": "02-entry-resolved.png",
+      "stateFile": "02-entry-resolved.json",
+      "htmlFile": "02-entry-resolved.html"
+    },
+    {
+      "step": 3,
+      "label": "post-login-check",
+      "timestamp": "2026-03-26T21:00:08.989Z",
+      "url": "https://www.linkedin.com/jobs/view/analytics-engineer-at-robinhood-4354291921/",
+      "screenshotFile": "03-post-login-check.png",
+      "stateFile": "03-post-login-check.json",
+      "htmlFile": "03-post-login-check.html"
+    },
+    {
+      "step": 4,
+      "label": "pass-1-after-fill",
+      "timestamp": "2026-03-26T21:01:13.851Z",
+      "url": "https://www.linkedin.com/feed/",
+      "screenshotFile": "04-pass-1-after-fill.png",
+      "stateFile": "04-pass-1-after-fill.json",
+      "htmlFile": "04-pass-1-after-fill.html"
+    },
+    {
+      "step": 5,
+      "label": "post-autofill",
+      "timestamp": "2026-03-26T21:01:14.127Z",
+      "url": "https://www.linkedin.com/feed/",
+      "screenshotFile": "05-post-autofill.png",
+      "stateFile": "05-post-autofill.json",
+      "htmlFile": "05-post-autofill.html"
+    }
+  ]
+}

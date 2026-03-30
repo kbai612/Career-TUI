@@ -11,7 +11,9 @@
   "dependencies": {
     "@career-ops/core": "file:../../packages/core",
     "commander": "^13.1.0",
+    "imapflow": "^1.0.181",
     "p-queue": "^8.1.0",
-    "playwright": "^1.51.0"
+    "playwright": "^1.51.0",
+    "tesseract.js": "^6.0.1"
   }
 }

@@ -74,6 +74,23 @@ CAREER_OPS_UPLOADED_RESUME=./profile/uploaded_resume.pdf
 # CAREER_OPS_AUTOAPPLY_INFO_JSON=./profile/autoapply-info.json
 # Set to 1 only if you want autoapply-shortlist to attempt submit clicks
 # CAREER_OPS_AUTOAPPLY_SUBMIT=0
+# Interaction mode: pyautogui (real cursor/keystrokes) or playwright
+# CAREER_OPS_AUTOAPPLY_MODE=pyautogui
+# Log intended pyautogui actions without executing clicks/typing
+# CAREER_OPS_AUTOAPPLY_OS_DRY_RUN=0
+# Optional Python executable override for pyautogui bridge
+# CAREER_OPS_AUTOAPPLY_PYTHON=python
+# Optional default login/signup credentials for apply flows
+# CAREER_OPS_AUTOAPPLY_LOGIN_EMAIL=
+# CAREER_OPS_AUTOAPPLY_LOGIN_PASSWORD=
+# CAREER_OPS_AUTOAPPLY_ALLOW_CREATE_ACCOUNT=0
+# Optional IMAP inbox polling for one-time verification codes
+# CAREER_OPS_AUTOAPPLY_OTP_IMAP_HOST=
+# CAREER_OPS_AUTOAPPLY_OTP_IMAP_PORT=993
+# CAREER_OPS_AUTOAPPLY_OTP_IMAP_SECURE=1
+# CAREER_OPS_AUTOAPPLY_OTP_IMAP_USER=
+# CAREER_OPS_AUTOAPPLY_OTP_IMAP_PASSWORD=
+# CAREER_OPS_AUTOAPPLY_OTP_IMAP_MAILBOX=INBOX
 # Optional: skip Playwright PDF rendering and keep HTML resume artifacts only
 # CAREER_OPS_SKIP_PDF_RENDER=1
 ```
@@ -331,7 +348,13 @@ Alias:
 node apps/worker/dist/apps/worker/src/index.js apply 1
 ```
 
-### 11. Bulk autoapply the shortlist in Playwright
+### 11. Bulk autoapply the shortlist with pyautogui
+
+Install the Python dependency once before using this flow:
+
+```powershell
+python -m pip install pyautogui
+```
 
 ```powershell
 node apps/worker/dist/apps/worker/src/index.js autoapply-shortlist --resume .\profile\uploaded_resume.pdf
@@ -345,15 +368,27 @@ node apps/worker/dist/apps/worker/src/index.js autoapply-shortlist --resume .\pr
 
 # Limit run size and provide extra answers JSON
 node apps/worker/dist/apps/worker/src/index.js autoapply-shortlist --resume .\profile\uploaded_resume.pdf --info .\profile\autoapply-info.json --limit 5
+
+# Use Playwright-only interactions instead of pyautogui mouse/keyboard
+node apps/worker/dist/apps/worker/src/index.js autoapply-shortlist --resume .\profile\uploaded_resume.pdf --mode playwright
+
+# Dry-run test of pyautogui click/type actions on one stored LinkedIn job
+node apps/worker/dist/apps/worker/src/index.js autoapply-test --job-id 123 --resume .\profile\uploaded_resume.pdf --os-dry-run
 ```
+
+`autoapply-test` is safety-locked and never clicks the final submit/apply button.
+By default it now writes debug artifacts (screenshots + JSON + HTML snapshots) to `logs/autoapply-test/<timestamp>-job-...`.
+Use `--no-debug-artifacts` to disable, or `--debug-dir <path>` to write artifacts somewhere else.
 
 This command:
 
-- targets jobs in `shortlisted`, `resume_ready`, `ready_to_apply`, and `in_review`
+- targets LinkedIn jobs in `shortlisted`, `resume_ready`, `ready_to_apply`, and `in_review`
 - ensures resume + application draft exist before filling
-- opens each apply URL with your persistent browser profile
-- excludes LinkedIn-hosted apply URLs from autoapply (use external ATS/company apply URLs or manual apply)
+- opens the LinkedIn job posting with your persistent browser profile
+- branches by LinkedIn route (`linkedin_easy_apply`, `linkedin_apply`)
+- clicks LinkedIn `Apply` / `Easy Apply`, then adapts to the resulting LinkedIn modal or external company form with pyautogui-assisted interaction
 - autofills known answers and uploads your resume
+- can attempt login with default credentials, optionally create an account, and poll email OTP codes through IMAP
 - marks jobs `in_review` after prefill, and `submitted` only when submit confirmation is detected
 
 ### 12. Run sequential or parallel URL files

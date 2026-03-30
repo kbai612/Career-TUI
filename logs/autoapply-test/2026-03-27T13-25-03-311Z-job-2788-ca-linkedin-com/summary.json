@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-03-27T13:32:30.636Z",
+  "jobId": 2788,
+  "company": "TD",
+  "title": "Senior Applied Machine Learning Scientist, Conversational AI (B3617)",
+  "targetUrl": "https://ca.linkedin.com/jobs/view/senior-applied-machine-learning-scientist-conversational-ai-b3617-at-td-4370503237",
+  "outcome": "failed",
+  "pageErrors": [],
+  "message": "Autoapply is still blocked on a sign-in surface after the auth handoff. title=Sign In; headings=TD Careers | Senior Applied Machine Learning Scientist, Conversational AI (B3617) | Senior Applied Machine Learning Scientist, Conversational AI (B3617) | Sign InEmail Address*Password*Sign InDon't have an account yet?Create AccountForgot your password?; buttons=Skip to main content | Cookies Notice | Read Full Privacy Message | Decline | Accept Cookies | English | Settings | kevinbaiyyz@gmail.com",
+  "snapshots": [
+    {
+      "step": 1,
+      "label": "opened-target-page",
+      "timestamp": "2026-03-27T13:25:19.854Z",
+      "url": "https://www.linkedin.com/jobs/view/senior-applied-machine-learning-scientist-conversational-ai-b3617-at-td-4370503237/",
+      "screenshotFile": "01-opened-target-page.png",
+      "stateFile": "01-opened-target-page.json",
+      "htmlFile": "01-opened-target-page.html"
+    },
+    {
+      "step": 2,
+      "label": "entry-resolved",
+      "timestamp": "2026-03-27T13:29:27.909Z",
+      "url": "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143?source=LinkedIn",
+      "screenshotFile": "02-entry-resolved.png",
+      "stateFile": "02-entry-resolved.json",
+      "htmlFile": "02-entry-resolved.html"
+    },
+    {
+      "step": 3,
+      "label": "post-login-check",
+      "timestamp": "2026-03-27T13:32:30.557Z",
+      "url": "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Senior-Applied-Machine-Learning-Scientist--Conversational-AI--B3617-_R_1469143?source=LinkedIn",
+      "screenshotFile": "03-post-login-check.png",
+      "stateFile": "03-post-login-check.json",
+      "htmlFile": "03-post-login-check.html"
+    }
+  ]
+}

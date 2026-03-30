@@ -183,6 +183,7 @@ const actionButtons: any[] = [];
 const ACTION_BUTTON_COLUMNS = 2;
 const ACTION_BUTTON_HEIGHT = 3;
 const DASHBOARD_FOOTER_CONTROLS = "R: REFRESH   L: OPEN LINK   LEFT/RIGHT: TABS   8: ACTIONS   X: REJECT   S: SHORTLIST   A: APPLIED   I: INTERVIEW   D: RESEARCH   M: CONTACT   V: NEXT VIEW   :Q QUIT";
+const REFRESH_ANIMATION_INTERVAL_MS = 120;
 const REFRESH_ANIMATION_MIN_MS = 700;
 const TAB_ORDER: TabKey[] = ["all", "evaluated", "shortlisted", "applied", "interview", "top", "no_apply"];
 
@@ -378,7 +379,7 @@ function startRefreshAnimation(): void {
     refreshAnimationIndex = (refreshAnimationIndex + 1) % REFRESH_DOT_FRAMES.length;
     refreshAnimationTickCount += 1;
     render();
-  }, 220);
+  }, REFRESH_ANIMATION_INTERVAL_MS);
 }
 
 function stopRefreshAnimation(): void {
@@ -603,7 +604,7 @@ const baseManualActions: ManualAction[] = [
   {
     label: "Autoapply Shortlist",
     hint: "Bulk prefill shortlist jobs with uploaded resume",
-    description: "Runs worker autoapply-shortlist. Set CAREER_OPS_UPLOADED_RESUME (and optional CAREER_OPS_AUTOAPPLY_INFO_JSON / CAREER_OPS_AUTOAPPLY_SUBMIT=1) before running. LinkedIn-hosted apply URLs are skipped.",
+    description: "Runs worker autoapply-shortlist. Set CAREER_OPS_UPLOADED_RESUME (and optional CAREER_OPS_AUTOAPPLY_INFO_JSON / CAREER_OPS_AUTOAPPLY_SUBMIT=1). OS-level mode can move your real cursor and type real keystrokes.",
     run: async () => {
       try {
         return await runWorkerCommand(["autoapply-shortlist"]);

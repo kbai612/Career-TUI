@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-03-25T18:56:21.362Z",
+  "label": "entry-resolved",
+  "url": "https://www.example.com/",
+  "title": "Example Domain",
+  "surface": {
+    "mainControls": 0,
+    "mainForms": 0,
+    "mainFileInputs": 0,
+    "mainContactSignals": 0,
+    "totalControls": 0,
+    "totalForms": 0,
+    "fileInputs": 0,
+    "contactSignals": 0,
+    "hasLinkedInApplyEntry": false
+  },
+  "frameUrls": [
+    "https://www.example.com/"
+  ],
+  "fieldSampleCount": 0,
+  "fieldSamples": [],
+  "ctaSamples": [],
+  "entryRoute": "company_specific"
+}

@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-03-25T19:07:56.766Z",
+  "jobId": 0,
+  "company": "Manual test",
+  "title": "Autoapply test",
+  "targetUrl": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Financial-Advisor---Union-Essex_R_1456805",
+  "outcome": "prefilled",
+  "entryRoute": "workday",
+  "missingKeys": [
+    "linkedin"
+  ],
+  "roleAnswersUsed": 0,
+  "resumeUploaded": false,
+  "message": "Final submit is intentionally disabled in autoapply-test.",
+  "snapshots": [
+    {
+      "step": 1,
+      "label": "opened-target-page",
+      "timestamp": "2026-03-25T19:06:28.597Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Financial-Advisor---Union-Essex_R_1456805",
+      "screenshotFile": "01-opened-target-page.png",
+      "stateFile": "01-opened-target-page.json",
+      "htmlFile": "01-opened-target-page.html"
+    },
+    {
+      "step": 2,
+      "label": "entry-resolved",
+      "timestamp": "2026-03-25T19:07:48.836Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Financial-Advisor---Union-Essex_R_1456805",
+      "screenshotFile": "02-entry-resolved.png",
+      "stateFile": "02-entry-resolved.json",
+      "htmlFile": "02-entry-resolved.html"
+    },
+    {
+      "step": 3,
+      "label": "post-login-check",
+      "timestamp": "2026-03-25T19:07:49.259Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Financial-Advisor---Union-Essex_R_1456805",
+      "screenshotFile": "03-post-login-check.png",
+      "stateFile": "03-post-login-check.json",
+      "htmlFile": "03-post-login-check.html"
+    },
+    {
+      "step": 4,
+      "label": "pass-1-after-fill",
+      "timestamp": "2026-03-25T19:07:54.858Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Financial-Advisor---Union-Essex_R_1456805",
+      "screenshotFile": "04-pass-1-after-fill.png",
+      "stateFile": "04-pass-1-after-fill.json",
+      "htmlFile": "04-pass-1-after-fill.html"
+    },
+    {
+      "step": 5,
+      "label": "pass-1-after-progress-attempt",
+      "timestamp": "2026-03-25T19:07:56.372Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Financial-Advisor---Union-Essex_R_1456805",
+      "screenshotFile": "05-pass-1-after-progress-attempt.png",
+      "stateFile": "05-pass-1-after-progress-attempt.json",
+      "htmlFile": "05-pass-1-after-progress-attempt.html"
+    },
+    {
+      "step": 6,
+      "label": "post-autofill",
+      "timestamp": "2026-03-25T19:07:56.766Z",
+      "url": "https://td.wd3.myworkdayjobs.com/en-US/TD_Bank_Careers/job/Financial-Advisor---Union-Essex_R_1456805",
+      "screenshotFile": "06-post-autofill.png",
+      "stateFile": "06-post-autofill.json",
+      "htmlFile": "06-post-autofill.html"
+    }
+  ]
+}

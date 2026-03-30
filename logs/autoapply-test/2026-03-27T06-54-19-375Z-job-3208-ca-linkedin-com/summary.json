@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-03-27T06:55:40.746Z",
+  "jobId": 3208,
+  "company": "TD",
+  "title": "Applied Machine Learning Scientist I",
+  "targetUrl": "https://ca.linkedin.com/jobs/view/applied-machine-learning-scientist-i-at-td-4364939273",
+  "outcome": "failed",
+  "message": "LinkedIn Apply/Easy Apply button was detected but could not be clicked safely without drifting.",
+  "snapshots": [
+    {
+      "step": 1,
+      "label": "opened-target-page",
+      "timestamp": "2026-03-27T06:54:36.803Z",
+      "url": "https://ca.linkedin.com/jobs/view/applied-machine-learning-scientist-i-at-td-4364939273",
+      "screenshotFile": "01-opened-target-page.png",
+      "stateFile": "01-opened-target-page.json",
+      "htmlFile": "01-opened-target-page.html"
+    }
+  ]
+}

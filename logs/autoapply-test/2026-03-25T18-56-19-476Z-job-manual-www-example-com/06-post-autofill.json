@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-03-25T18:56:23.278Z",
+  "label": "post-autofill",
+  "url": "https://www.example.com/",
+  "title": "Example Domain",
+  "surface": {
+    "mainControls": 0,
+    "mainForms": 0,
+    "mainFileInputs": 0,
+    "mainContactSignals": 0,
+    "totalControls": 0,
+    "totalForms": 0,
+    "fileInputs": 0,
+    "contactSignals": 0,
+    "hasLinkedInApplyEntry": false
+  },
+  "frameUrls": [
+    "https://www.example.com/"
+  ],
+  "fieldSampleCount": 0,
+  "fieldSamples": [],
+  "ctaSamples": [],
+  "entryRoute": "company_specific",
+  "missingKeys": [
+    "full_name",
+    "email",
+    "phone",
+    "location",
+    "linkedin",
+    "github",
+    "portfolio",
+    "requires_sponsorship",
+    "work_authorization",
+    "salary_expectation",
+    "notice_period"
+  ],
+  "roleAnswersUsed": 0,
+  "resumeUploaded": false
+}

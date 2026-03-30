@@ -1,0 +1,112 @@
+{
+  "timestamp": "2026-03-27T15:45:56.111Z",
+  "label": "pass-4-after-visible-field-fill",
+  "url": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774626264795&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.152272633.1391736572.1774573671-286962217.1774573670&_gl=1*ioi88u*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjYyNjMkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+  "title": "Login | General Data Protection Regulation (GDPR)",
+  "surface": {
+    "mainControls": 0,
+    "mainForms": 0,
+    "mainFileInputs": 0,
+    "mainContactSignals": 0,
+    "totalControls": 6,
+    "totalForms": 1,
+    "fileInputs": 0,
+    "contactSignals": 3,
+    "hasLinkedInApplyEntry": false
+  },
+  "frameUrls": [
+    "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774626264795&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.152272633.1391736572.1774573671-286962217.1774573670&_gl=1*ioi88u*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjYyNjMkajYwJGwwJGgw&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+    "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774626264795&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.152272633.1391736572.1774573671-286962217.1774573670&_gl=1*ioi88u*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjYyNjMkajYwJGwwJGgw&in_iframe=1&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+    "https://newassets.hcaptcha.com/captcha/v1/fabe23c328a7e13148d7617a8db6bd9021149544/static/hcaptcha.html#frame=challenge&id=02t8bk52p928&host=canadaenglish-careers-aon.icims.com&sentry=true&reportapi=https%3A%2F%2Faccounts.hcaptcha.com&recaptchacompat=off&custom=false&hl=en&tplinks=on&andint=off&pstissuer=https%3A%2F%2Fpst-issuer.hcaptcha.com&sitekey=94fee806-5cac-4582-9738-384a0f4ea6f8&size=invisible&theme=light&origin=https%3A%2F%2Fcanadaenglish-careers-aon.icims.com",
+    "https://newassets.hcaptcha.com/captcha/v1/fabe23c328a7e13148d7617a8db6bd9021149544/static/hcaptcha.html#frame=checkbox-invisible"
+  ],
+  "fieldSampleCount": 6,
+  "fieldSamples": [
+    {
+      "frame": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774626264795&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.152272633.1391736572.1774573671-286962217.1774573670&_gl=1*ioi88u*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjYyNjMkajYwJGwwJGgw&in_iframe=1&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "tag": "input",
+      "type": "email",
+      "name": "css_loginName",
+      "id": "email",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 21,
+      "required": false,
+      "disabled": false,
+      "labelText": "Email"
+    },
+    {
+      "frame": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774626264795&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.152272633.1391736572.1774573671-286962217.1774573670&_gl=1*ioi88u*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjYyNjMkajYwJGwwJGgw&in_iframe=1&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "tag": "input",
+      "type": "hidden",
+      "name": "",
+      "id": "consentCaptureTitle",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 41,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    },
+    {
+      "frame": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774626264795&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.152272633.1391736572.1774573671-286962217.1774573670&_gl=1*ioi88u*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjYyNjMkajYwJGwwJGgw&in_iframe=1&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "tag": "select",
+      "type": "",
+      "name": "gdpr_consent_type",
+      "id": "gdpr_consent_type",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 11,
+      "required": false,
+      "disabled": false,
+      "labelText": "— Make a Selection — I would like my personal details to be processed for other suitable opportunities at Aon as well I would like my personal details to be processed for this job only"
+    },
+    {
+      "frame": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774626264795&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.152272633.1391736572.1774573671-286962217.1774573670&_gl=1*ioi88u*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjYyNjMkajYwJGwwJGgw&in_iframe=1&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "tag": "input",
+      "type": "checkbox",
+      "name": "accept_gdpr",
+      "id": "accept_gdpr",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 1,
+      "required": false,
+      "disabled": false,
+      "labelText": "I Accept"
+    },
+    {
+      "frame": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774626264795&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.152272633.1391736572.1774573671-286962217.1774573670&_gl=1*ioi88u*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjYyNjMkajYwJGwwJGgw&in_iframe=1&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "tag": "input",
+      "type": "submit",
+      "name": "",
+      "id": "enterEmailSubmitButton",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 4,
+      "required": false,
+      "disabled": true,
+      "labelText": ""
+    },
+    {
+      "frame": "https://canadaenglish-careers-aon.icims.com/jobs/100620/login?_sp=22cac60a-c6ac-41ad-8d84-e5f3cd027a40.1774626264795&_jsqid=undefined&iis=Job+Board&iisn=LinkedIn&_ga=2.152272633.1391736572.1774573671-286962217.1774573670&_gl=1*ioi88u*_ga*Mjg2OTYyMjE3LjE3NzQ1NzM2NzA.*_ga_5Y2BYGL910*czE3NzQ2MjQyNDkkbzQkZzEkdDE3NzQ2MjYyNjMkajYwJGwwJGgw&in_iframe=1&mobile=false&width=940&height=500&bga=true&needsRedirect=false&jan1offset=-300&jun1offset=-240",
+      "tag": "textarea",
+      "type": "",
+      "name": "h-captcha-response",
+      "id": "h-captcha-response-02t8bk52p928",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 0,
+      "required": false,
+      "disabled": false,
+      "labelText": ""
+    }
+  ],
+  "ctaSamples": [],
+  "pageErrors": [],
+  "route": "company_specific",
+  "pass": 4,
+  "filledPromptsCurrentPass": [
+    "accept gdpr accept gdpr"
+  ],
+  "unresolvedRequiredPromptsCurrentPass": []
+}

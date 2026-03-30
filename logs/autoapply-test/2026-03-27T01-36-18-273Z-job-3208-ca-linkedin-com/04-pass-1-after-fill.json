@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-03-27T01:37:09.986Z",
+  "label": "pass-1-after-fill",
+  "url": "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Applied-Machine-Learning-Scientist-I_R_1467853?source=LinkedIn",
+  "title": "TD Careers",
+  "surface": {
+    "mainControls": 0,
+    "mainForms": 0,
+    "mainFileInputs": 0,
+    "mainContactSignals": 0,
+    "totalControls": 0,
+    "totalForms": 0,
+    "fileInputs": 0,
+    "contactSignals": 0,
+    "hasLinkedInApplyEntry": false
+  },
+  "frameUrls": [
+    "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Applied-Machine-Learning-Scientist-I_R_1467853?source=LinkedIn"
+  ],
+  "fieldSampleCount": 0,
+  "fieldSamples": [],
+  "ctaSamples": [],
+  "route": "linkedin_apply",
+  "pass": 1,
+  "maxPasses": 3,
+  "expectedKeys": [
+    "full_name",
+    "email",
+    "phone",
+    "location",
+    "linkedin",
+    "github",
+    "portfolio",
+    "requires_sponsorship",
+    "race",
+    "gender",
+    "veteran",
+    "disability",
+    "work_authorization",
+    "salary_expectation",
+    "notice_period"
+  ],
+  "filledKeys": [],
+  "candidateKeys": [
+    "linkedin"
+  ],
+  "missingKeysCurrentPass": [
+    "linkedin"
+  ],
+  "roleAnswersUsedCurrentPass": 0,
+  "resumeUploadedCurrentPass": false
+}

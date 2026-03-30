@@ -1,0 +1,92 @@
+{
+  "timestamp": "2026-03-27T06:33:22.229Z",
+  "label": "post-login-check",
+  "url": "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Applied-Machine-Learning-Scientist-I_R_1467853?source=LinkedIn",
+  "title": "Create Account",
+  "surface": {
+    "mainControls": 5,
+    "mainForms": 1,
+    "mainFileInputs": 0,
+    "mainContactSignals": 0,
+    "totalControls": 5,
+    "totalForms": 1,
+    "fileInputs": 0,
+    "contactSignals": 0,
+    "hasLinkedInApplyEntry": false
+  },
+  "frameUrls": [
+    "https://td.wd3.myworkdayjobs.com/TD_Bank_Careers/job/Toronto-Ontario/Applied-Machine-Learning-Scientist-I_R_1467853?source=LinkedIn"
+  ],
+  "fieldSampleCount": 5,
+  "fieldSamples": [
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "text",
+      "name": "",
+      "id": "input-10",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 0,
+      "required": false,
+      "disabled": false,
+      "labelText": "Email Address*"
+    },
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "password",
+      "name": "",
+      "id": "input-11",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 0,
+      "required": false,
+      "disabled": false,
+      "labelText": "Password*"
+    },
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "password",
+      "name": "",
+      "id": "input-12",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 0,
+      "required": false,
+      "disabled": false,
+      "labelText": "Verify New Password*"
+    },
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "checkbox",
+      "name": "",
+      "id": "input-15",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 2,
+      "required": false,
+      "disabled": false,
+      "labelText": "I have read and accept these terms and conditions."
+    },
+    {
+      "frame": "main",
+      "tag": "input",
+      "type": "text",
+      "name": "website",
+      "id": "8ead4a3d-71c8-46a5-8626-5c54aa2a7bbc",
+      "ariaLabel": "",
+      "placeholder": "",
+      "valueLength": 0,
+      "required": false,
+      "disabled": false,
+      "labelText": "Enter website. This input is for robots only, do not enter if you're human."
+    }
+  ],
+  "ctaSamples": [],
+  "loginAttempted": false,
+  "accountCreated": false,
+  "otpCodeUsed": false
+}

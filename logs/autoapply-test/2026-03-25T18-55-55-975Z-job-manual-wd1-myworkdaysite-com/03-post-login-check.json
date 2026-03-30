@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-03-25T18:56:00.058Z",
+  "label": "post-login-check",
+  "url": "https://community.workday.com/maintenance-page",
+  "title": "Workday is currently unavailable.",
+  "surface": {
+    "mainControls": 0,
+    "mainForms": 0,
+    "mainFileInputs": 0,
+    "mainContactSignals": 0,
+    "totalControls": 0,
+    "totalForms": 0,
+    "fileInputs": 0,
+    "contactSignals": 0,
+    "hasLinkedInApplyEntry": false
+  },
+  "frameUrls": [
+    "https://community.workday.com/maintenance-page"
+  ],
+  "fieldSampleCount": 0,
+  "fieldSamples": [],
+  "ctaSamples": [],
+  "loginAttempted": false,
+  "accountCreated": false,
+  "otpCodeUsed": false
+}

@@ -1,0 +1,11 @@
+{
+  "generatedAt": "2026-03-27T11:17:07.638Z",
+  "jobId": 0,
+  "company": "Manual test",
+  "title": "Autoapply test",
+  "targetUrl": "https://www.linkedin.com/jobs/view/marketing-director-at-phasev-4372970176",
+  "outcome": "failed",
+  "pageErrors": [],
+  "message": "Job posting appears closed or unavailable.",
+  "snapshots": []
+}
