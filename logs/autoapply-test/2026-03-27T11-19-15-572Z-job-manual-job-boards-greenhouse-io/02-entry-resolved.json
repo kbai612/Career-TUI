@@ -17,7 +17,7 @@
   "frameUrls": [
     "https://job-boards.greenhouse.io/remotewoman/jobs/8457355002",
     "https://content.googleapis.com/static/proxy.html?usegapi=1&jsh=m%3B%2F_%2Fscs%2Fabc-static%2F_%2Fjs%2Fk%3Dgapi.lb.en.PJsh2cctCQI.O%2Fd%3D1%2Frs%3DAHpOoo_QlMhY2cycn60Rs8eI1WInRwuahw%2Fm%3D__features__#parent=https%3A%2F%2Fjob-boards.greenhouse.io&rpctoken=259136754",
-    "https://www.recaptcha.net/recaptcha/enterprise/anchor?ar=1&k=6LfmcbcpAAAAAChNTbhUShzUOAMj_wY9LQIvLFX0&co=aHR0cHM6Ly9qb2ItYm9hcmRzLmdyZWVuaG91c2UuaW86NDQz&hl=en&v=79clEdOi5xQbrrpL2L8kGmK3&size=invisible&anchor-ms=20000&execute-ms=30000&cb=1y4hbae1y81d",
+    "https://www.recaptcha.net/recaptcha/enterprise/anchor?ar=1&k=[REDACTED]&co=aHR0cHM6Ly9qb2ItYm9hcmRzLmdyZWVuaG91c2UuaW86NDQz&hl=en&v=79clEdOi5xQbrrpL2L8kGmK3&size=invisible&anchor-ms=20000&execute-ms=30000&cb=1y4hbae1y81d",
     "about:blank",
     "about:blank"
   ],
@@ -284,7 +284,7 @@
       "labelText": ""
     },
     {
-      "frame": "https://www.recaptcha.net/recaptcha/enterprise/anchor?ar=1&k=6LfmcbcpAAAAAChNTbhUShzUOAMj_wY9LQIvLFX0&co=aHR0cHM6Ly9qb2ItYm9hcmRzLmdyZWVuaG91c2UuaW86NDQz&hl=en&v=79clEdOi5xQbrrpL2L8kGmK3&size=invisible&anchor-ms=20000&execute-ms=30000&cb=1y4hbae1y81d",
+      "frame": "https://www.recaptcha.net/recaptcha/enterprise/anchor?ar=1&k=[REDACTED]&co=aHR0cHM6Ly9qb2ItYm9hcmRzLmdyZWVuaG91c2UuaW86NDQz&hl=en&v=79clEdOi5xQbrrpL2L8kGmK3&size=invisible&anchor-ms=20000&execute-ms=30000&cb=1y4hbae1y81d",
       "tag": "input",
       "type": "hidden",
       "name": "",

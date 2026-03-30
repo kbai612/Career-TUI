@@ -8,6 +8,7 @@ import { Command } from "commander";
 import PQueue from "p-queue";
 import { ImapFlow } from "imapflow";
 import Tesseract = require("tesseract.js");
+import { sanitizeDebugArtifactText } from "./debug-artifact-sanitizer";
 import { normalizeLevelsSourceUrl, normalizeLinkedInSourceUrl } from "./source-url";
 import {
   pickBestLinkedInEntryCandidate,
@@ -2439,11 +2440,11 @@ async function captureAutoApplyDebugSnapshot(
     pageErrors,
     ...details
   };
-  writeFileSync(statePath, JSON.stringify(statePayload, null, 2), "utf8");
+  writeFileSync(statePath, sanitizeDebugArtifactText(JSON.stringify(statePayload, null, 2)), "utf8");
 
   const markup = await page.content().catch(() => "");
   if (markup.length > 0) {
-    writeFileSync(htmlPath, markup, "utf8");
+    writeFileSync(htmlPath, sanitizeDebugArtifactText(markup), "utf8");
   }
 
   session.snapshots.push({
@@ -2465,11 +2466,11 @@ function finalizeAutoApplyDebugSession(
     return;
   }
   const summaryPath = path.resolve(session.runDir, "summary.json");
-  writeFileSync(summaryPath, JSON.stringify({
+  writeFileSync(summaryPath, sanitizeDebugArtifactText(JSON.stringify({
     generatedAt: new Date().toISOString(),
     ...payload,
     snapshots: session.snapshots
-  }, null, 2), "utf8");
+  }, null, 2)), "utf8");
 }
 
 async function locatorViewportPoint(locator: Locator): Promise<{ x: number; y: number; scale: number } | null> {
